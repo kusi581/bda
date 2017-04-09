@@ -8,8 +8,8 @@ using namespace std;
 class Common
 {
 public:
-    static void log(char* msg);
     static void log(string msg);
+    static void log(string msg, string msg2);
 private:
     Common();
 };

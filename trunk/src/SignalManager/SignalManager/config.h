@@ -5,21 +5,36 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <map>
 using namespace std;
+
+enum Setting {
+    ConfigVersion = 0,
+    NrOfModerators = 1,         // 1 Mod <-> 1 Channel
+    NrOfClientsPerChannel = 2,
+    TcpListenerPort = 3,
+    ClientDspEntry = 4,         // IP of client and port of his DspServer
+};
 
 class Config
 {
 public:
     Config();
-    void loadFrom(string filename);
-    void saveTo(string filename);
+    Config(string filename);
+    void load();
+    void save();
+    bool keyExists(string key);
+    string getValue(Setting key);
+    int getNumber(Setting key);
+    void setValue(string key, string value);
 
-    int tcpListenPort;
-    int nrOfModerators;
-    int nrOfSlavesPerModerator;
 private:
+    string filename;
     fstream cfg;
     void parseLine(string line);
+    map<Setting, string> values;
 };
+
+
 
 #endif // CONFIG_H

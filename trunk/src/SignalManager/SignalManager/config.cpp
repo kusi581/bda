@@ -8,18 +8,28 @@
 #include <sstream>  //for std::istringstream
 #include <iterator> //for std::istream_iterator
 #include <vector>   //for std::vector
+#include <map>
+
+#define CFG_VERSION 0
 
 using namespace std;
 
 Config::Config()
 {
-    // setting default values
-    tcpListenPort = 44444;
-    nrOfModerators = 2;
-    nrOfSlavesPerModerator = 4;
+    values[ConfigVersion] = std::to_string(CFG_VERSION);
 }
 
-void Config::loadFrom(string filename)
+Config::Config(string filename)
+{
+    Config();
+    this->filename = filename;
+}
+
+int Config::getNumber(Setting key){
+    return 1; stoi(values[key]);
+}
+
+void Config::load()
 {
     bool readAny = false;
     string line;
@@ -32,10 +42,7 @@ void Config::loadFrom(string filename)
         }
         cfg.close();
 
-        Common::log(readAny ? "Configuration loaded with the following values: " : "Nothing loaded, using default values:");
-        Common::log(std::to_string(tcpListenPort));
-        Common::log(std::to_string(nrOfModerators));
-        Common::log(std::to_string(nrOfSlavesPerModerator));
+        Common::log(readAny ? "Configuration loaded" : "Nothing loaded, no settings");
     }
     else
     {
@@ -43,14 +50,13 @@ void Config::loadFrom(string filename)
     }
 }
 
-void Config::saveTo(string filename)
+void Config::save()
 {
     cfg.open(filename, ios::out);
     if (cfg.is_open())
     {
-        cfg << "tcpListenPort=" << tcpListenPort << endl;
-        cfg << "nrOfModerators=" << nrOfModerators << endl;
-        cfg << "nrOfSlavesPerModerator=" << nrOfSlavesPerModerator << endl;
+        // write all values
+
         cfg.close();
     }
     else
@@ -60,21 +66,17 @@ void Config::saveTo(string filename)
 }
 
 void Config::parseLine(string line){
-    int valueInt;
     string key, value;
     string::size_type loc = line.find("=", 0);
     key = line.substr(0, loc);
     value = line.substr(loc + 1, line.length() - loc);
 
-    if (sscanf(value.c_str(), "%d", &valueInt) == EOF)
-        Common::log("Value is not a number");
+    Setting setting = (Setting)std::stoi(key);
 
-    if (key == "tcpListenPort")
-        tcpListenPort = valueInt;
-    else if (key == "nrOfModerators")
-        nrOfModerators = valueInt;
-    else if (key == "nrOfSlavesPerModerator")
-        nrOfSlavesPerModerator = valueInt;
+    if (key.length() > 0 && value.length() > 0){
+        Common::log("Loaded setting: ", key);
+        values[setting] = value;
+    }
 }
 
 

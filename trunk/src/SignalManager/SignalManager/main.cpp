@@ -17,7 +17,7 @@
 
 using namespace std;
 
-Config cfg;
+Config cfg = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
 int isRunning = true;
 char* tLog;
 
@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     string input;
     Common::log("Start");
 
-    cfg.loadFrom("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SiMa.cfg");
+    //cfg.loadFromFile("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SiMa.cfg");
     //cfg.saveTo("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SiMa.cfg");
 
     std::thread tcpThread(&tcpListener);
@@ -108,7 +108,7 @@ void tcpListener(){
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons( cfg.tcpListenPort );
+    server.sin_port = htons(cfg.getNumber(TcpListenerPort));
 
     while (isRunning){
         bytes_read = recvfrom(sock, tcpReceiveBuffer, sizeof(tcpReceiveBuffer), 0, (struct sockaddr *)&server,&length);
