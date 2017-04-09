@@ -123,8 +123,16 @@ int main(int argc,char* argv[]) {
 
     while(1) {
 	    char ch;
-	    while((ch = getc(stdin)) != EOF) 
-	      if (ch == 'q') break;
+            while((ch = getc(stdin)) != EOF)
+            {
+                if (ch == 'q')
+                  break;
+            }
+            if (ch == 'q')
+                break;
+    }
+    if(metis || hermes) {
+        metis_stop_receive();
     }
 }
 

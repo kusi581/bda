@@ -182,6 +182,8 @@ SetThreadProcessingMode(unsigned int thread, RUNMODE runmode)
 DttSP_EXP int
 SetMode (unsigned int thread, unsigned int subrx, SDRMODE m)
 {
+        fprintf(stderr,"Mode set to %d", m);
+
 	int rtn=0;
 	sem_wait(&top[thread].sync.upd.sem);
 	tx[thread].mode = m;

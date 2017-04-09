@@ -215,6 +215,23 @@ char* metis_mac_address(int entry) {
     return NULL;
 }
 
+void metis_stop_receive() {
+    int i;
+    // send a packet to start the stream
+    buffer[0]=0xEF;
+    buffer[1]=0xFE;
+    buffer[2]=0x00;    // data send state send (0x00=stop)
+    buffer[3]=0x00;    // I/Q only
+
+    for(i=0;i<60;i++) {
+        buffer[i+4]=0x00;
+    }
+
+    metis_send_buffer(&buffer[0],64);
+
+    printf("Metis receiver stopped!\n");
+}
+
 /*
     Start Command
 
@@ -230,7 +247,6 @@ char* metis_mac_address(int entry) {
      Command = 1 byte (bit [0] set starts I&Q + Mic data and bit [1] set starts the wide bandscope data)
 
 */
-
 void metis_start_receive_thread() {
     int i;
     int rc;
@@ -336,7 +352,7 @@ void* metis_receive_thread(void* arg) {
                                 break;
                         }
                     } else {
-                        fprintf(stderr,"unexpected data packet when in discovery mode\n");
+                        //fprintf(stderr,"unexpected data packet when in discovery mode\n");
                     }
                     break;
                 case 2:  // response to a discovery packet - hardware is not yet sending

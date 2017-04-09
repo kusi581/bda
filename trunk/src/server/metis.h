@@ -40,6 +40,7 @@ int metis_found();
 char* metis_ip_address(int entry);
 char* metis_mac_address(int entry);
 void metis_start_receive_thread();
+void metis_stop_receive();
 
 int metis_write(unsigned char ep, unsigned char* buffer,int length);
 

@@ -112,7 +112,10 @@ void
 AMDemod (AMD am)
 {
 	int i;
-	REAL demout;
+        REAL demout;
+
+        fprintf(stderr, "AM called");
+
 	switch (am->mode)
 	{
 		case SAMdet:
@@ -130,7 +133,8 @@ AMDemod (AMD am)
 				am->dc = 0.9999f * am->dc + 0.0001f * am->lock.curr;
 				am->smooth = 0.5f * am->smooth + 0.5f * (am->lock.curr - am->dc);
 				/* demout = am->smooth; */
-				CXBdata (am->obuf, i) = Cmplx (am->smooth, am->smooth);
+                                CXBdata (am->obuf, i) = Cmplx (am->smooth, am->smooth);
+
 			}
 			break;
 	}
