@@ -14,29 +14,31 @@
 #include <arpa/inet.h>
 #include <thread>
 #include "main.h"
+#include "dspmanager.h"
 
 using namespace std;
 
-Config cfg = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
-int isRunning = true;
 char* tLog;
+static Common co;
 
 int main(int argc, char *argv[])
 {
     string input;
-    Common::log("Start");
+    co.initLog("mai", true);
+    co.log("Start");
 
-    //cfg.loadFromFile("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SiMa.cfg");
-    //cfg.saveTo("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SiMa.cfg");
+    //std::thread tcpThread(&tcpListener);
+    //std::thread udpThread(&udpListener);
 
-    std::thread tcpThread(&tcpListener);
-    std::thread udpThread(&udpListener);
+    dspManager* dspMan = new dspManager();
+    dspMan->setupSocket();
+    dspMan->startListener();
 
     while(true){
         cin >> input;
         if (input == "q")
         {
-            isRunning = false;
+            dspMan->stopListener();
             break;
         }
     }
@@ -45,7 +47,7 @@ int main(int argc, char *argv[])
     //tcpThread.join();
     std::terminate();
 
-    Common::log("End");
+    co.log("End");
     return 0;
 }
 
@@ -57,71 +59,39 @@ void udpListener(){
     int bytes_read;
     unsigned int length;
 
-    Common::log("tcpListener started");
+    co.log("udpListener started");
 
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == -1){
-        Common::log("Error while creating udp socket");
+        co.log("Error while creating udp socket");
         return;
     }
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons(13000 + 0); // add offset depending on dsp master
+    server.sin_port = htons(8000); // add offset depending on dsp master
 
     if (bind(sock, (struct sockaddr*)&server, sizeof(server)) == -1)
     {
-        Common::log("Error while binding socket to port (udp)");
+        co.log("Error while binding socket to port (udp)");
         return;
     }
-    Common::log("udp Socket created");
+    co.log("udp Socket created");
 
-    while (isRunning) {
+    while (true) {
         bytes_read = recvfrom(sock, udpReceiveBuffer, sizeof(udpReceiveBuffer), 0, (struct sockaddr*)&client, &length);
         if (bytes_read < 0){
-            Common::log("Error while reading from udp socket.");
+            co.log("Error while reading from udp socket.");
 
             break;
         }
         sprintf(tLog,"[LOG] udp Message received from %s:d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-        Common::log(tLog);
+        co.log(tLog);
     }
 
-    Common::log("tcpListener stopped");
+    co.log("udpListener stopped");
 }
 
 // receiving commands from webserver
 void tcpListener(){
-    int sock;
-    struct sockaddr_in server;
-    unsigned char tcpReceiveBuffer[512];
-    int bytes_read;
-    unsigned int length;
 
-    // create socket
-    sock = socket(AF_INET , SOCK_STREAM , 0);
-    if (sock == -1)
-    {
-        Common::log("Error while creating tcp socket!");
-        return;
-    }
-    Common::log("tcp Socket created");
-
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons(cfg.getNumber(TcpListenerPort));
-
-    while (isRunning){
-        bytes_read = recvfrom(sock, tcpReceiveBuffer, sizeof(tcpReceiveBuffer), 0, (struct sockaddr *)&server,&length);
-
-        if (bytes_read < 0)
-        {
-            //Common::log("Error while reading from tcp socket.");
-            //break;
-        }
-        else
-        {
-            Common::log("tcp Message received");
-        }
-    }
-    Common::log("tcpListener stopped");
 }

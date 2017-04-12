@@ -5,7 +5,21 @@
 #include <sys/time.h>
 using namespace std;
 
+Common::Common()
+{
+    initLog("com", false);
+}
+
+void Common::initLog(string component, bool enabled)
+{
+    this->component = component;
+    this->enabled = enabled;
+}
+
 void Common::log(string msg, string msg2) {
+    if (!this->enabled)
+        return;
+
     struct timeval tp;
     gettimeofday(&tp, NULL);
 
@@ -20,11 +34,13 @@ void Common::log(string msg, string msg2) {
          << now->tm_min << ':'
          << now->tm_sec << '.'
          << (tp.tv_usec)
-         << "] " << msg << msg2 << endl;
+         << "|" << component << "] " << msg << msg2 << endl;
 }
 
 void Common::log(string msg)
 {
+    if (!this->enabled)
+        return;
     struct timeval tp;
     gettimeofday(&tp, NULL);
 
@@ -39,5 +55,5 @@ void Common::log(string msg)
          << now->tm_min << ':'
          << now->tm_sec << '.'
          << (tp.tv_usec)
-         << "] " << msg << endl;
+         << "|" << component << "] " << msg << endl;
 }

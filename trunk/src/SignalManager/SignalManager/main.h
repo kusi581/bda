@@ -1,6 +1,7 @@
 #ifndef MAIN
 #define MAIN
-void tcpListener();
+#include "common.h"
+
 void udpListener();
 #endif // MAIN
 

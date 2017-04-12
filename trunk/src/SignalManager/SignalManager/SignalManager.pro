@@ -9,10 +9,12 @@ TEMPLATE = app
 
 SOURCES += main.cpp \
     config.cpp \
-    common.cpp
+    common.cpp \
+    dspmanager.cpp
 
 HEADERS += \
     config.h \
     common.h \
-    main.h
+    main.h \
+    dspmanager.h
 

@@ -8,10 +8,13 @@ using namespace std;
 class Common
 {
 public:
-    static void log(string msg);
-    static void log(string msg, string msg2);
-private:
     Common();
+    void initLog(string component, bool enabled);
+    void log(string msg1);
+    void log(string msg1, string msg2);
+private:
+    string component;
+    bool enabled;
 };
 
 #endif // COMMON_H

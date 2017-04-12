@@ -13,10 +13,12 @@
 #define CFG_VERSION 0
 
 using namespace std;
+Common co;
 
 Config::Config()
 {
-    values[ConfigVersion] = std::to_string(CFG_VERSION);
+    co.initLog("CFG", false);
+    values["ConfigVersion"] = std::to_string(CFG_VERSION);
 }
 
 Config::Config(string filename)
@@ -25,8 +27,16 @@ Config::Config(string filename)
     this->filename = filename;
 }
 
-int Config::getNumber(Setting key){
-    return 1; stoi(values[key]);
+int Config::getNumber(string key){
+    return stoi(getValue(key));
+}
+
+string Config::getValue(string key){
+    std::map<string, string>::iterator pos = values.find(key);
+    if (pos == values.end())
+        co.log("Key not found: ", key);
+
+    return pos->second;
 }
 
 void Config::load()
@@ -42,11 +52,11 @@ void Config::load()
         }
         cfg.close();
 
-        Common::log(readAny ? "Configuration loaded" : "Nothing loaded, no settings");
+        co.log(readAny ? "Configuration loaded" : "Nothing loaded, no settings");
     }
     else
     {
-        Common::log("Could not open config file!");
+        co.log("Could not open config file!");
     }
 }
 
@@ -57,11 +67,16 @@ void Config::save()
     {
         // write all values
 
+        for (std::map<string, string>::iterator it = values.begin(); it != values.end(); ++it)
+        {
+            cfg << it->first << "=" << it->second << endl;
+        }
+
         cfg.close();
     }
     else
     {
-        Common::log("Could not open config file!");
+        co.log("Could not open config file!");
     }
 }
 
@@ -71,11 +86,9 @@ void Config::parseLine(string line){
     key = line.substr(0, loc);
     value = line.substr(loc + 1, line.length() - loc);
 
-    Setting setting = (Setting)std::stoi(key);
-
     if (key.length() > 0 && value.length() > 0){
-        Common::log("Loaded setting: ", key);
-        values[setting] = value;
+        co.log(key, value);
+        values[key] = value;
     }
 }
 
