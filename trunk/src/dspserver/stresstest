@@ -1,0 +1,14 @@
+echo Starting some dspservers...
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40001'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40002'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40003'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40004'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40005'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40006'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40007'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40008'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40009'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40010'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40011'
+gnome-terminal -e 'dspserver --address 127.0.0.1 --hpsdr --clientport 40012'
+

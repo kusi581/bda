@@ -265,6 +265,12 @@ void Mic_stream_queue_free(){
 	sem_post(&mic_semaphore);
 }
 
+// port, where dsp-server is listening for connections from clients
+void setClientPort(int portClient)
+{
+    port = portClient;
+}
+
 void client_init(int receiver) {
     int rc;
 
@@ -284,7 +290,9 @@ void client_init(int receiver) {
     rtp_init();
     spectrum_timer_init();
 
-    port=BASE_PORT+receiver;
+    if (port == BASE_PORT)
+        port=BASE_PORT+receiver;
+
     port_ssl = BASE_PORT_SSL + receiver;
     rc=pthread_create(&client_thread_id,NULL,client_thread,NULL);
 

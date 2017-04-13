@@ -114,6 +114,7 @@ typedef struct _memory_entry {
 	TAILQ_ENTRY(_memory_entry) entries;
 } memory_entry;
 
+void setClientPort(int portClient);
 void client_init(int receiver);
 void rtp_tx_init(void);
 void tx_init(void);
