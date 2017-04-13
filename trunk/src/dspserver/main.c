@@ -128,7 +128,8 @@ enum {
     OPT_NOCORRECTIQ,
     OPT_DEBUG,
     OPT_THREAD_DEBUG,
-    OPT_HPSDRLOC
+    OPT_HPSDRLOC,
+    OPT_CLIENTPORT
 };
 
 struct option longOptions[] = {
@@ -146,6 +147,7 @@ struct option longOptions[] = {
     {"nocorrectiq",no_argument, NULL, OPT_NOCORRECTIQ},
     {"debug",no_argument, NULL, OPT_DEBUG},
     {"hpsdrloc",no_argument, NULL, OPT_HPSDRLOC},
+    {"clientport", required_argument, NULL, OPT_CLIENTPORT},
 #ifdef THREAD_DEBUG
     {"debug-threads",no_argument, NULL, OPT_THREAD_DEBUG},
 #endif /* THREAD_DEBUG */
@@ -165,7 +167,7 @@ void signal_shutdown(int signum);
 */
 /* ----------------------------------------------------------------------------*/
 void processCommands(int argc,char** argv,struct dspserver_config *config) {
-    int c;
+    int c, cPort;
     while((c=getopt_long(argc,argv,shortOptions,longOptions,NULL))!=-1) {
         switch(c) {
             case OPT_SOUNDCARD:
@@ -219,6 +221,10 @@ void processCommands(int argc,char** argv,struct dspserver_config *config) {
                 break;
             case OPT_HPSDRLOC:
                 ozy_set_hpsdr_local();
+                break;
+            case OPT_CLIENTPORT:
+                cPort = atoi(optarg);
+                setClientPort(cPort);
                 break;
             case OPT_NOCORRECTIQ:
                 config->no_correct_iq = 1;
