@@ -31,12 +31,32 @@ int Config::getNumber(string key){
     return stoi(getValue(key));
 }
 
-string Config::getValue(string key){
-    std::map<string, string>::iterator pos = values.find(key);
-    if (pos == values.end())
-        co.log("Key not found: ", key);
+void Config::setValue(string key, string value)
+{
+    values[key] = value;
+}
 
-    return pos->second;
+int Config::getNumber(string key, int part){
+    return stoi(getValue(key, part));
+}
+
+bool Config::keyExists(string key)
+{
+    std::map<string, string>::iterator pos = values.find(key);
+    return pos != values.end();
+}
+
+string Config::getValue(string key)
+{
+    std::map<string, string>::iterator pos = values.find(key);
+    return keyExists(key) ? pos->second : "";
+}
+
+string Config::getValue(string key, int part)
+{
+    string val = getValue(key);
+    std::vector<std::string> parts = co.split(val, ',');
+    return parts[part];
 }
 
 void Config::load()
@@ -66,7 +86,6 @@ void Config::save()
     if (cfg.is_open())
     {
         // write all values
-
         for (std::map<string, string>::iterator it = values.begin(); it != values.end(); ++it)
         {
             cfg << it->first << "=" << it->second << endl;

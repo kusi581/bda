@@ -20,6 +20,8 @@ public:
     string getValue(string key);
     int getNumber(string key);
     void setValue(string key, string value);
+    string getValue(string key, int part);
+    int getNumber(string key, int part);
 
 private:
     string filename;

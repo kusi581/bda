@@ -11,8 +11,9 @@ struct sockaddr_in socketAddr;
 char receiveBuffer[512];
 int bytes_read;
 unsigned int socketAddrSize = sizeof(socketAddr);
-Config cfg;
-int nrOfConnections = 5;
+Config cfgGlobal;
+Config cfgChannels;
+int nrOfConnections = 5; // todo: configurable in global
 static Common co;
 
 dspManager::dspManager()
@@ -20,8 +21,10 @@ dspManager::dspManager()
     co.initLog("dsp", true);
     isRunning = false;
     setupOk = false;
-    cfg = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
-    cfg.load();
+    cfgGlobal = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
+    cfgGlobal.load();
+
+    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
 }
 
 void dspManager::startListener()
@@ -47,7 +50,7 @@ void dspManager::stopListener()
     close(tcpSocket);
     isRunning = false;
     listenThread.detach();
-   //listenThread.join();
+    //listenThread.join();
 
 }
 
@@ -64,7 +67,7 @@ void dspManager::setupSocket()
 
     socketAddr.sin_family = AF_INET;
     socketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    socketAddr.sin_port = htons(cfg.getNumber("tcpListenPort"));
+    socketAddr.sin_port = htons(cfgGlobal.getNumber("tcpListenPort"));
 
     if (bind(tcpSocket, (struct sockaddr *) &socketAddr, socketAddrSize) < 0)
     {
@@ -85,7 +88,6 @@ void dspManager::setupSocket()
 
 void dspManager::waitForConnection()
 {
-    int curr = 0;
     int socketClient;
     struct sockaddr_in clientAddr;
     unsigned int clientAddrSize = sizeof(clientAddr);
@@ -99,6 +101,33 @@ void dspManager::waitForConnection()
 
         //std::thread cThr(&dspManager::clientListen, this, socketClient);
     }
+}
+
+void dspManager::generateInitialChannelConfig()
+{
+    string defaultFreq = "24800000";
+    int defaultMasterPort = 40000;
+    int masterPortOffset = 100;
+    int externalPortOffset = 10000;
+    int cI, sI;
+    int channels = cfgGlobal.getNumber("channels");
+    int slotsPerChannel = cfgGlobal.getNumber("slotsPerChannel");
+
+    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
+
+    for (cI = 0;cI < channels;cI++)
+    {
+        int masterPort = defaultMasterPort + cI * masterPortOffset;
+        cfgChannels.setValue(co.getMasterKey(cI), string(to_string(masterPort) + "," + to_string(masterPort + externalPortOffset) + "," + defaultFreq));
+
+        for(sI = 0;sI < slotsPerChannel;sI++)
+        {
+            int slavePort = masterPort + 1 + sI;
+            cfgChannels.setValue(co.getSlaveKey(cI, sI), string(to_string(slavePort) + "," + to_string(slavePort + externalPortOffset) + "," + defaultFreq));
+        }
+    }
+
+    cfgChannels.save();
 }
 
 void dspManager::clientListen(int socketClient)
@@ -128,29 +157,104 @@ void dspManager::clientListen(int socketClient)
     co.log("wait messages stopped");
 }
 
+// todo: evtl. auslagern in anderes/mehrere file(s)?
 string dspManager::handleCommand(string raw)
 {
     string result = "f;invalid command";
 
     // check for valid command
-    if (raw.find("(") == string::npos || raw.find(")") == string::npos)
+    if (raw.find('(') == string::npos || raw.find(')') == string::npos)
         return result;
 
     // todo: convert to lower
-    string cmd = raw.substr(0, raw.find("("));
+    string cmd = raw.substr(0, raw.find('('));
+    string argument = (raw.find('(') == raw.find(')') - 1) ? "" : raw.substr(raw.find('(') + 1, raw.find(')') - raw.find('(') - 1);
 
     if (cmd == "getChannels")
         result = getChannels();
+    else if (cmd == "startChannel")
+        result = startChannel(argument);
+    else if (cmd == "getChannelInfo")
+        result = getChannelInfo(argument);
 
     return result;
 }
 
 string dspManager::getChannels()
 {
-    Config channelCfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
-    channelCfg.load();
+    int i = 0;
+    string response = "s;";
 
-    // todo: get active channels from config file
+    cfgChannels.load();
 
-    return "f;no channels started";
+    int channels = cfgGlobal.getNumber("channels");
+
+    while (i < channels)
+    {
+        response = response + to_string(i);
+        if (i < channels - 1)
+            response += ";";
+        i++;
+    }
+
+    return response;
+}
+
+string dspManager::getChannelInfo(string argument)
+{
+    string response;
+    int channel = stoi(argument);
+
+    cfgChannels.load();
+
+    string key = co.getMasterKey(argument);
+    if (channel >= cfgGlobal.getNumber("channels") || !cfgChannels.keyExists(key))
+    {
+        response = "f;channel " + argument + " does not exist";
+    }
+    else
+    {
+        // todo:
+        response = "s;NotRunning";
+    }
+    return response;
+}
+
+string dspManager::startChannel(string argument)
+{
+    string response;
+    string channelKey = co.getMasterKey(argument);
+
+    cfgChannels.load();
+    if (!cfgChannels.keyExists(channelKey))
+    {
+        response = "f;invalid channel";
+    }
+    else
+    {
+        // starting dsp
+        string dspTcpPort = cfgChannels.getValue(channelKey, 0);
+
+        string dspFile = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
+        string dspCommand = dspFile + " --address 127.0.0.1 --hpsdr --clientport " + dspTcpPort + " --receiver 0";
+        // todo: receiver when multiple mods
+
+        string fullCommand = "gnome-terminal -e '" + dspCommand + "'";
+        system(fullCommand.c_str());
+
+        // starting websocket bridge
+        string dspWsPort = cfgChannels.getValue(channelKey, 1);
+        string websockify = "websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort;
+
+        fullCommand = "gnome-terminal -e '" + websockify + "'";
+        system(fullCommand.c_str());
+
+        response = "s;dsp started;" + dspWsPort;
+    }
+
+    return response;
+}
+
+string setFreq(){
+
 }

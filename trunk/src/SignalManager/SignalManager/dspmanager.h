@@ -3,6 +3,9 @@
 
 #include <thread>
 #include "common.h"
+#include <functional>
+#include "config.h"
+#include <string>
 
 using namespace std;
 
@@ -20,9 +23,14 @@ private:
     void waitForConnection();
     void clientListen(int clientSocket);
     string handleCommand(string raw);
+    Config cfgChannels;
+    Config cfgGlobal;
+    void generateInitialChannelConfig();
 
-    // command handler
+    // commands
     string getChannels();
+    string startChannel(string argument);
+    string getChannelInfo(string argument);
 };
 
 #endif // DSPMANAGER_H

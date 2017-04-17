@@ -3,6 +3,9 @@
 #include <string>
 #include <stdarg.h>
 #include <sys/time.h>
+#include <sstream>
+#include <vector>
+#include <iterator>
 using namespace std;
 
 Common::Common()
@@ -56,4 +59,40 @@ void Common::log(string msg)
          << now->tm_sec << '.'
          << (tp.tv_usec)
          << "|" << component << "] " << msg << endl;
+}
+
+template<typename Out>
+void Common::split(const std::string &s, char delim, Out result) {
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
+
+std::vector<std::string> Common::split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, std::back_inserter(elems));
+    return elems;
+}
+
+string Common::getMasterKey(int channel)
+{
+    return getMasterKey(to_string(channel));
+}
+
+string Common::getSlaveKey(int channel, int slave)
+{
+    return getSlaveKey(to_string(channel), to_string(slave));
+}
+
+string Common::getMasterKey(string channel)
+{
+    return string("ch" + channel + "ma");
+}
+
+string Common::getSlaveKey(string channel, string slave)
+{
+    return string("ch" + channel + "s" + slave);
 }
