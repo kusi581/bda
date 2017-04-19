@@ -24,6 +24,7 @@ public:
     int getNumber(string key, int part);
 
 private:
+    Common co;
     string filename;
     fstream cfg;
     void parseLine(string line);

@@ -1,10 +1,11 @@
 #ifndef DSPMANAGER_H
 #define DSPMANAGER_H
 
-#include <thread>
 #include "common.h"
-#include <functional>
 #include "config.h"
+#include "commandhandler.h"
+#include <thread>
+#include <functional>
 #include <string>
 
 using namespace std;
@@ -18,6 +19,8 @@ public:
     void stopListener();
     bool isRunning;
 private:
+    Common co;
+    commandHandler handler;
     bool setupOk;
     std::thread listenThread;
     void waitForConnection();
@@ -26,11 +29,6 @@ private:
     Config cfgChannels;
     Config cfgGlobal;
     void generateInitialChannelConfig();
-
-    // commands
-    string getChannels();
-    string startChannel(string argument);
-    string getChannelInfo(string argument);
 };
 
 #endif // DSPMANAGER_H

@@ -1,9 +1,10 @@
 #include "dspmanager.h"
 #include "common.h"
+#include "config.h"
+#include "commandhandler.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <thread>
-#include "config.h"
 #include <unistd.h>
 
 int tcpSocket;
@@ -14,7 +15,6 @@ unsigned int socketAddrSize = sizeof(socketAddr);
 Config cfgGlobal;
 Config cfgChannels;
 int nrOfConnections = 5; // todo: configurable in global
-static Common co;
 
 dspManager::dspManager()
 {
@@ -50,8 +50,6 @@ void dspManager::stopListener()
     close(tcpSocket);
     isRunning = false;
     listenThread.detach();
-    //listenThread.join();
-
 }
 
 void dspManager::setupSocket()
@@ -88,18 +86,18 @@ void dspManager::setupSocket()
 
 void dspManager::waitForConnection()
 {
+    std::thread cThr;
     int socketClient;
     struct sockaddr_in clientAddr;
     unsigned int clientAddrSize = sizeof(clientAddr);
-    co.log("accept connections...");
 
     while(isRunning) {
         socketClient = accept(tcpSocket, (struct sockaddr *) &clientAddr, &clientAddrSize);
-        co.log("New connection from: ", inet_ntoa(clientAddr.sin_addr));
+        co.log("Client connected: " + string(inet_ntoa(clientAddr.sin_addr)) + ":" + to_string((int)clientAddr.sin_port));
 
-        clientListen(socketClient);
-
-        //std::thread cThr(&dspManager::clientListen, this, socketClient);
+        // create thread an detach it so it runs on its own
+        cThr = std::thread(&dspManager::clientListen, this, socketClient);
+        cThr.detach();
     }
 }
 
@@ -132,13 +130,14 @@ void dspManager::generateInitialChannelConfig()
 
 void dspManager::clientListen(int socketClient)
 {
-    co.log("wait for messages...");
+    string socketStr = to_string(socketClient);
+    co.log("Socket(" + socketStr + ") listen");
     while (isRunning){
         bytes_read = read(socketClient, receiveBuffer, sizeof(receiveBuffer));// recvfrom(socketClient, receiveBuffer, sizeof(receiveBuffer), 0, (struct sockaddr *)&socketAddr,&socketAddrSize);
 
         if (bytes_read < 0)
         {
-            //co.log("Error while reading from tcp socket.");
+            co.log("Error while reading from tcp socket.");
             //break;
         }
         else
@@ -151,110 +150,15 @@ void dspManager::clientListen(int socketClient)
             bytes_read = send(socketClient, response.c_str(), response.length() + 1, 0);
             if (bytes_read < 0)
                 co.log("error sending response");
-            co.log("response out: ", response);
+            co.log("Socket(" + socketStr + ") -> " + response);
         }
     }
-    co.log("wait messages stopped");
+    close(socketClient);
+    co.log("Socket(" + socketStr + ") closed");
 }
 
-// todo: evtl. auslagern in anderes/mehrere file(s)?
 string dspManager::handleCommand(string raw)
 {
-    string result = "f;invalid command";
-
-    // check for valid command
-    if (raw.find('(') == string::npos || raw.find(')') == string::npos)
-        return result;
-
-    // todo: convert to lower
-    string cmd = raw.substr(0, raw.find('('));
-    string argument = (raw.find('(') == raw.find(')') - 1) ? "" : raw.substr(raw.find('(') + 1, raw.find(')') - raw.find('(') - 1);
-
-    if (cmd == "getChannels")
-        result = getChannels();
-    else if (cmd == "startChannel")
-        result = startChannel(argument);
-    else if (cmd == "getChannelInfo")
-        result = getChannelInfo(argument);
-
-    return result;
+    return handler.handle(raw);
 }
 
-string dspManager::getChannels()
-{
-    int i = 0;
-    string response = "s;";
-
-    cfgChannels.load();
-
-    int channels = cfgGlobal.getNumber("channels");
-
-    while (i < channels)
-    {
-        response = response + to_string(i);
-        if (i < channels - 1)
-            response += ";";
-        i++;
-    }
-
-    return response;
-}
-
-string dspManager::getChannelInfo(string argument)
-{
-    string response;
-    int channel = stoi(argument);
-
-    cfgChannels.load();
-
-    string key = co.getMasterKey(argument);
-    if (channel >= cfgGlobal.getNumber("channels") || !cfgChannels.keyExists(key))
-    {
-        response = "f;channel " + argument + " does not exist";
-    }
-    else
-    {
-        // todo:
-        response = "s;NotRunning";
-    }
-    return response;
-}
-
-string dspManager::startChannel(string argument)
-{
-    string response;
-    string channelKey = co.getMasterKey(argument);
-
-    cfgChannels.load();
-    if (!cfgChannels.keyExists(channelKey))
-    {
-        response = "f;invalid channel";
-    }
-    else
-    {
-        // starting dsp
-        string dspTcpPort = cfgChannels.getValue(channelKey, 0);
-
-        string dspFile = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
-        string dspCommand = dspFile + " --address 127.0.0.1 --hpsdr --clientport " + dspTcpPort + " --receiver 0";
-        // todo: receiver when multiple mods
-
-        string fullCommand = "gnome-terminal -e '" + dspCommand + "'";
-        system(fullCommand.c_str());
-
-        // starting websocket bridge
-        string dspWsPort = cfgChannels.getValue(channelKey, 1);
-        string websockify = "websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort;
-
-        fullCommand = "gnome-terminal -e '" + websockify + "'";
-        system(fullCommand.c_str());
-
-        response = "s;dsp started;" + dspWsPort;
-    }
-
-    return response;
-}
-
-string setFreq(){
-
-}

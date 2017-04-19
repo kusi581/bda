@@ -6,6 +6,7 @@
 #include <sstream>
 #include <vector>
 #include <iterator>
+#include <algorithm>
 
 using namespace std;
 
@@ -17,10 +18,11 @@ public:
     void log(string msg1);
     void log(string msg1, string msg2);
 
-    // split
+    // string operations
     template<typename Out>
     void split(const std::string &s, char delim, Out result);
     std::vector<std::string> split(const std::string &s, char delim);
+    string toLower(string text);
 
     // config keys
     string getMasterKey(int channel);

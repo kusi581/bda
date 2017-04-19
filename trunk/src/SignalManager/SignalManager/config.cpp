@@ -13,7 +13,6 @@
 #define CFG_VERSION 0
 
 using namespace std;
-Common co;
 
 Config::Config()
 {
@@ -34,6 +33,9 @@ int Config::getNumber(string key){
 void Config::setValue(string key, string value)
 {
     values[key] = value;
+
+    // save when something changes
+    save();
 }
 
 int Config::getNumber(string key, int part){

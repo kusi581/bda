@@ -15,6 +15,7 @@
 #include <thread>
 #include "main.h"
 #include "dspmanager.h"
+#include "multiplexer.h"
 
 using namespace std;
 
@@ -33,6 +34,10 @@ int main(int argc, char *argv[])
     dspManager* dspMan = new dspManager();
     dspMan->setupSocket();
     dspMan->startListener();
+
+    multiplexer* multi = new multiplexer();
+    multi->init(2000);
+    multi->start();
 
     while(true){
         cin >> input;

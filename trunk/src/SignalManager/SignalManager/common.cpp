@@ -77,6 +77,12 @@ std::vector<std::string> Common::split(const std::string &s, char delim) {
     return elems;
 }
 
+string Common::toLower(string text)
+{
+    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+    return text;
+}
+
 string Common::getMasterKey(int channel)
 {
     return getMasterKey(to_string(channel));
