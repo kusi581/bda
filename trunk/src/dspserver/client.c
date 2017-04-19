@@ -1089,6 +1089,7 @@ static char *slave_commands[] = {
     "startrtpstream",
     "setfps",
     "setmaster",
+    "setfrequency",
     NULL
 };
 
@@ -1219,7 +1220,7 @@ void readcb(struct bufferevent *bev, void *ctx){
                 }
             }
             if (invalid) {
-                //sdr_log(SDR_LOG_INFO, "Slave client attempted master command %s\n", cmd);
+                sdr_log(SDR_LOG_INFO, "Slave client attempted master command %s\n", cmd);
                 continue;
             }
         }
@@ -2369,7 +2370,7 @@ void answer_question(char *message, char *clienttype, struct bufferevent *bev){
 		 }
 		 strcat(answer,";f;");
 		 char f[50];
-		 sprintf(f,"%lld;m;",lastFreq);
+                 sprintf(f,"%lld;m;",lastFreq);
 		 strcat(answer,f);
 		 char m[50];
 		 sprintf(m,"%d;z;",lastMode);	

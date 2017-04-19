@@ -60,6 +60,9 @@ static sem_t ozy_cmd_semaphore;
 double LO_offset = 9000;  // LO offset 9khz
 
 int receiver;
+int isMaster;
+int hwSendIqPort;       // port on which HW-Server is sending iq data (udp)
+int receiveIqPort;      // port on which dsp is listening for iq data (udp)
 
 //static char ozy_firmware_version[9];
 //int mercury_software_version=0;
@@ -200,6 +203,9 @@ fprintf(stderr,"iq_thread\n");
     iq_addr.sin_addr.s_addr=inet_addr(dspserver_address);
     iq_addr.sin_port=htons(SPECTRUM_PORT+(receiver*2));
 
+    if (receiveIqPort > 0)
+        iq_addr.sin_port=htons(receiveIqPort);
+
     if(bind(iq_socket,(struct sockaddr*)&iq_addr,iq_length)<0) {
         perror("iq_thread: bind socket failed for iq socket");
         exit(1);
@@ -279,17 +285,20 @@ fprintf(stderr,"iq_thread\n");
            data.src_ratio = src_ratio;
            data.end_of_input = 0;
 
-           rc = src_process (sr_state, &data) ;
-           if (rc) {
-               fprintf (stderr,"SRATE: error: %s (rc=%d)\n", src_strerror (rc), rc);
-           } else {
-               for (i=0;i < data.output_frames_gen;i++) {
-                  left_rx_sample=(short)(data.data_out[i*2]*32767.0);
-                  right_rx_sample=(short)(data.data_out[i*2+1]*32767.0);
-                  audio_stream_put_samples(left_rx_sample,right_rx_sample);
+           // ignore if not master
+           if (isMaster)
+           {
+               rc = src_process (sr_state, &data) ;
+               if (rc) {
+                   fprintf (stderr,"SRATE: error: %s (rc=%d)\n", src_strerror (rc), rc);
+               } else {
+                   for (i=0;i < data.output_frames_gen;i++) {
+                       left_rx_sample=(short)(data.data_out[i*2]*32767.0);
+                       right_rx_sample=(short)(data.data_out[i*2+1]*32767.0);
+                       audio_stream_put_samples(left_rx_sample,right_rx_sample);
                    }
-	   } // if (rc)
-
+               } // if (rc)
+           }
 
         // send the audio back to the server.
         // This is for HPSDR hardware.
@@ -321,6 +330,10 @@ void ozy_send(unsigned char* data,int length,char* who) {
     BUFFER buffer;
     unsigned short offset=0;
     int rc;
+
+    // ignore if not master
+    if (!isMaster)
+        return;
 
 //fprintf(stderr,"ozy_send: %s\n",who);
 sem_wait(&ozy_send_semaphore);
@@ -440,7 +453,10 @@ int make_connection() {
         }
     }
 
-    sprintf(command,"start iq %d",SPECTRUM_PORT+(receiver*2));
+    if (hwSendIqPort > 0)
+        sprintf(command,"start iq %d",hwSendIqPort);
+    else
+        sprintf(command,"start iq %d",SPECTRUM_PORT+(receiver*2));
     send_command(command, response);
 
     return result;
@@ -462,6 +478,13 @@ int ozySetFrequency(long long ddsAFrequency) {
     char *saveptr;
 
     result=0;
+
+    if (!isMaster)
+    {
+        // todo: change frequency of slave dspserver
+        return result;
+    }
+
     sprintf(command,"frequency %lld", (ddsAFrequency - (long long)LO_offset));
     send_command(command, response);
     token=strtok_r(response," ",&saveptr);
@@ -669,99 +692,108 @@ int ozy_init(const char *server_address, const char *dspserver_address) {
 
     server_port=11000;
 
-    // create a socket to send commands to the server
-    command_socket=socket(AF_INET,SOCK_STREAM,0);
-    if(command_socket<0) {
-        perror("ozy_init: create command socket failed");
-        exit(1);
-    }
-   
-    setsockopt(command_socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-
-    memset(&command_addr,0,command_length);
-
-    command_addr.sin_family=AF_INET;
-    fprintf(stderr,"ozy_init: command address: %s\n", dspserver_address);
-    command_addr.sin_addr.s_addr=inet_addr(dspserver_address);
-    command_addr.sin_port=htons(COMMAND_PORT+(receiver*2));
-
-    if(bind(command_socket,(struct sockaddr*)&command_addr,command_length)<0) {
-        perror("ozy_init: bind socket failed for command socket");
-        exit(1);
-    }
-
-    fprintf(stderr,"ozy_init: command bound to port %d socket %d\n",ntohs(command_addr.sin_port),command_socket);
-
-
-
-    // create a socket to send audio to the server
-    audio_socket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-    if(audio_socket<0) {
-        perror("ozy_init: create audio socket failed");
-        exit(1);
-    }
-    // setsockopt(audio_socket, SOL_SOCKET, SO_REUSEADDR, &audio_on, sizeof(audio_on));
-
-    memset(&audio_addr,0,audio_length);
-    audio_addr.sin_family=AF_INET;
-    fprintf(stderr,"ozy_init: audio address: %s\n", dspserver_address);
-    audio_addr.sin_addr.s_addr = inet_addr(dspserver_address);
-    audio_addr.sin_port=htons(0);
-
-   if(bind(audio_socket,(struct sockaddr*)&audio_addr,audio_length)<0) {
-        perror("ozy_init: bind socket failed for audio socket");
-        exit(1);
-    }
-
-    fprintf(stderr,"ozy_init: audio bound to port %d socket %d\n",ntohs(audio_addr.sin_port),audio_socket);
-
-
-    memset(&server_audio_addr,0,server_audio_length);
-    server_audio_addr.sin_family=h->h_addrtype;
-    memcpy((char *)&server_audio_addr.sin_addr.s_addr,h->h_addr_list[0],h->h_length);
-    server_audio_addr.sin_port=htons(AUDIO_PORT+(receiver*2));
-
-    fprintf(stderr,"ozy_init: server audio is in port %d\n",ntohs(server_audio_addr.sin_port));
-
-    // setup the server address and command port
-    memset(&server_addr,0,server_length);
-    server_addr.sin_family=h->h_addrtype;
-    memcpy((char *)&server_addr.sin_addr.s_addr,h->h_addr_list[0],h->h_length);
-    server_addr.sin_port=htons(server_port);
-
-
-    fprintf(stderr,"ozy_init: server %s\n",server_address);
-
-    // connect
-    rc=connect(command_socket,(struct sockaddr*)&server_addr,server_length);
-    if(rc<0) {
-        perror("ozy_init: connect failed");
-        exit(1);
-    }
-
-    if(make_connection()) {
-        fprintf(stderr,"connect failed\n");
-        exit(1);
-    }
-
-        // create sample rate subobject
-        ozy_set_src_ratio();
-        int sr_error;
-        sr_state = src_new (
-                             //SRC_SINC_BEST_QUALITY,  // NOT USABLE AT ALL on Atom 300 !!!!!!!
-                             //SRC_SINC_MEDIUM_QUALITY,
-                             SRC_SINC_FASTEST,
-                             //SRC_ZERO_ORDER_HOLD,
-                             //SRC_LINEAR,
-                             2, &sr_error
-                           ) ;
-
-        if (sr_state == 0) { 
-            fprintf (stderr, "ozy_init: SR INIT ERROR: %s\n", src_strerror (sr_error)); 
-        } else {
-            fprintf (stderr, "ozy_init: sample rate init successfully at ratio: %f\n", src_ratio); 
+    // setup connections to HW-server only if it is master
+    if (isMaster)
+    {
+        // create a socket to send commands to the server
+        command_socket=socket(AF_INET,SOCK_STREAM,0);
+        if(command_socket<0) {
+            perror("ozy_init: create command socket failed");
+            exit(1);
         }
 
+        setsockopt(command_socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+        memset(&command_addr,0,command_length);
+
+        command_addr.sin_family=AF_INET;
+        fprintf(stderr,"ozy_init: command address: %s\n", dspserver_address);
+        command_addr.sin_addr.s_addr=inet_addr(dspserver_address);
+        command_addr.sin_port=htons(COMMAND_PORT+(receiver*2));
+
+        if(bind(command_socket,(struct sockaddr*)&command_addr,command_length)<0) {
+            perror("ozy_init: bind socket failed for command socket");
+            exit(1);
+        }
+
+        fprintf(stderr,"ozy_init: command bound to port %d socket %d\n",ntohs(command_addr.sin_port),command_socket);
+
+        // create a socket to send audio to the server
+        audio_socket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+        if(audio_socket<0) {
+            perror("ozy_init: create audio socket failed");
+            exit(1);
+        }
+        // setsockopt(audio_socket, SOL_SOCKET, SO_REUSEADDR, &audio_on, sizeof(audio_on));
+
+        memset(&audio_addr,0,audio_length);
+        audio_addr.sin_family=AF_INET;
+        fprintf(stderr,"ozy_init: audio address: %s\n", dspserver_address);
+        audio_addr.sin_addr.s_addr = inet_addr(dspserver_address);
+        audio_addr.sin_port=htons(0);
+
+       if(bind(audio_socket,(struct sockaddr*)&audio_addr,audio_length)<0) {
+            perror("ozy_init: bind socket failed for audio socket");
+            exit(1);
+        }
+
+        fprintf(stderr,"ozy_init: audio bound to port %d socket %d\n",ntohs(audio_addr.sin_port),audio_socket);
+
+
+        memset(&server_audio_addr,0,server_audio_length);
+        server_audio_addr.sin_family=h->h_addrtype;
+        memcpy((char *)&server_audio_addr.sin_addr.s_addr,h->h_addr_list[0],h->h_length);
+        server_audio_addr.sin_port=htons(AUDIO_PORT+(receiver*2));
+
+        fprintf(stderr,"ozy_init: server audio is in port %d\n",ntohs(server_audio_addr.sin_port));
+
+        // setup the server address and command port
+        memset(&server_addr,0,server_length);
+        server_addr.sin_family=h->h_addrtype;
+        memcpy((char *)&server_addr.sin_addr.s_addr,h->h_addr_list[0],h->h_length);
+        server_addr.sin_port=htons(server_port);
+
+
+        fprintf(stderr,"ozy_init: server %s\n",server_address);
+
+        // connect
+        rc=connect(command_socket,(struct sockaddr*)&server_addr,server_length);
+        if(rc<0) {
+            perror("ozy_init: connect failed\n");
+            //exit(1);
+        }
+
+        if(rc >= 0 && make_connection()) {
+            fprintf(stderr,"connect failed\n");
+            //exit(1);
+        }
+        else
+        {
+            // create sample rate subobject
+            ozy_set_src_ratio();
+            int sr_error;
+            sr_state = src_new (
+                                 //SRC_SINC_BEST_QUALITY,  // NOT USABLE AT ALL on Atom 300 !!!!!!!
+                                 //SRC_SINC_MEDIUM_QUALITY,
+                                 SRC_SINC_FASTEST,
+                                 //SRC_ZERO_ORDER_HOLD,
+                                 //SRC_LINEAR,
+                                 2, &sr_error
+                               ) ;
+
+            if (sr_state == 0) {
+                fprintf (stderr, "ozy_init: SR INIT ERROR: %s\n", src_strerror (sr_error));
+            } else {
+                fprintf (stderr, "ozy_init: sample rate init successfully at ratio: %f\n", src_ratio);
+            }
+        }
+    }
+    else
+    {
+
+        //sprintf(command,"start iq %d",SPECTRUM_PORT+(receiver*2));
+        //send_command(command, response);
+    }
 
     // create a thread to listen for iq frames
     rc=pthread_create(&iq_thread_id,NULL,iq_thread,(void*)dspserver_address);

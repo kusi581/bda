@@ -79,6 +79,9 @@ extern int sampleRate;
 extern int mox;
 
 extern int receiver;
+extern int isMaster;
+extern int hwSendIqPort;       // port on which HW-Server is sending iq data (udp)
+extern int receiveIqPort;      // port on which dsp is listening for iq data (udp)
 
 extern double LO_offset;
 

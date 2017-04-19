@@ -129,7 +129,10 @@ enum {
     OPT_DEBUG,
     OPT_THREAD_DEBUG,
     OPT_HPSDRLOC,
-    OPT_CLIENTPORT
+    OPT_CLIENTPORT,
+    OPT_MASTER,
+    OPT_HWIQPORT,
+    OPT_DSPIQPORT
 };
 
 struct option longOptions[] = {
@@ -147,7 +150,11 @@ struct option longOptions[] = {
     {"nocorrectiq",no_argument, NULL, OPT_NOCORRECTIQ},
     {"debug",no_argument, NULL, OPT_DEBUG},
     {"hpsdrloc",no_argument, NULL, OPT_HPSDRLOC},
+
     {"clientport", required_argument, NULL, OPT_CLIENTPORT},
+    {"master", no_argument, NULL, OPT_MASTER},
+    {"hwiqport", required_argument, NULL, OPT_HWIQPORT}, // used for: start iq PORT (hw server)
+    {"dspiqport", required_argument, NULL, OPT_DSPIQPORT},   // used for: iq udp port listen for dspserver
 #ifdef THREAD_DEBUG
     {"debug-threads",no_argument, NULL, OPT_THREAD_DEBUG},
 #endif /* THREAD_DEBUG */
@@ -179,6 +186,15 @@ void processCommands(int argc,char** argv,struct dspserver_config *config) {
             case OPT_RECEIVER:
                 /* FIXME: global */
                 receiver=atoi(optarg);
+                break;
+            case OPT_MASTER:
+                isMaster = 1;
+                break;
+            case OPT_HWIQPORT:
+                hwSendIqPort = atoi(optarg);
+                break;
+            case OPT_DSPIQPORT:
+                receiveIqPort = atoi(optarg);
                 break;
             case OPT_SERVER:
                 /* FIXME: global */
