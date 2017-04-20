@@ -145,8 +145,10 @@ void dspManager::clientListen(int socketClient)
             std::string st(receiveBuffer);
             if (st.length() <= 0)
                 continue;
+            else if (st == "disconnect()")
+                break;
 
-            string response = handleCommand(st);
+            string response = handler.handle(st);
             bytes_read = send(socketClient, response.c_str(), response.length() + 1, 0);
             if (bytes_read < 0)
                 co.log("error sending response");
@@ -156,9 +158,3 @@ void dspManager::clientListen(int socketClient)
     close(socketClient);
     co.log("Socket(" + socketStr + ") closed");
 }
-
-string dspManager::handleCommand(string raw)
-{
-    return handler.handle(raw);
-}
-

@@ -38,6 +38,16 @@ void Config::setValue(string key, string value)
     save();
 }
 
+void Config::setValue(string key, string partValue, int part)
+{
+    string value = getValue(key);
+    std::vector<std::string> parts = co.split(value, ',');
+    parts[part] = partValue;
+
+    value = co.join(parts, ",");
+    setValue(key, value);
+}
+
 int Config::getNumber(string key, int part){
     return stoi(getValue(key, part));
 }

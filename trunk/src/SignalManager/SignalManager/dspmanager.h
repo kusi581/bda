@@ -19,15 +19,14 @@ public:
     void stopListener();
     bool isRunning;
 private:
+    bool setupOk;
     Common co;
     commandHandler handler;
-    bool setupOk;
+    Config cfgChannels;
+    Config cfgGlobal;
     std::thread listenThread;
     void waitForConnection();
     void clientListen(int clientSocket);
-    string handleCommand(string raw);
-    Config cfgChannels;
-    Config cfgGlobal;
     void generateInitialChannelConfig();
 };
 

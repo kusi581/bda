@@ -22,6 +22,7 @@ public:
     template<typename Out>
     void split(const std::string &s, char delim, Out result);
     std::vector<std::string> split(const std::string &s, char delim);
+    string join(vector<string> &v, string delim);
     string toLower(string text);
 
     // config keys
@@ -29,6 +30,8 @@ public:
     string getSlaveKey(int channel, int slave);
     string getMasterKey(string channel);
     string getSlaveKey(string channel, string slave);
+    string getChannelKey(string channel);
+    string getChannelKey(int channel);
 private:
     string component;
     bool enabled;

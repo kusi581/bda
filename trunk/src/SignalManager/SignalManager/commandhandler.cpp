@@ -1,10 +1,20 @@
 #include "commandhandler.h"
 
+typedef string (commandHandler::*cmdPtr)(string);
+bool commandHandler::isInitialized = false;
+map<string, cmdPtr> commandHandler::commandMap;
+
 // this class handles the commands sent from the clients
 // for each command a new instance of this class is created
 commandHandler::commandHandler()
 {
     co.initLog("CoH", true);
+
+    if (!commandHandler::isInitialized)
+    {
+        commandHandler::isInitialized = true;
+        commandHandler::initCommandMap();
+    }
 
     cfgGlobal = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
     cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
@@ -22,16 +32,23 @@ string commandHandler::handle(string raw)
     string cmd = co.toLower(raw.substr(0, raw.find('(')));
     string argument = (raw.find('(') == raw.find(')') - 1) ? "" : raw.substr(raw.find('(') + 1, raw.find(')') - raw.find('(') - 1);
 
-    if (cmd == "getchannels")
-        result = getChannels();
-    else if (cmd == "startchannel")
-        result = startChannel(argument);
-    else if (cmd == "listenchannel")
-        result = listenChannel(argument);
-    else if (cmd == "getchannelinfo")
-        result = getChannelInfo(argument);
+    cmdPtr command = commandHandler::commandMap[cmd];
+
+    if (command != NULL)
+    {
+        co.log("Handling " + raw);
+        result = (this->*command)(argument);
+    }
 
     return result;
+}
+
+void commandHandler::initCommandMap()
+{
+    commandHandler::commandMap["getchannels"] = &commandHandler::getChannels;
+    commandHandler::commandMap["getchannelinfo"] = &commandHandler::getChannelInfo;
+    commandHandler::commandMap["startchannel"] = &commandHandler::startChannel;
+    commandHandler::commandMap["listenchannel"] = &commandHandler::listenChannel;
 }
 
 bool commandHandler::isValid(string command)
@@ -39,7 +56,7 @@ bool commandHandler::isValid(string command)
     return !(command.find('(') == string::npos || command.find(')') == string::npos);
 }
 
-string commandHandler::getChannels()
+string commandHandler::getChannels(string argument)
 {
     int i = 0;
     string response = "s;";
@@ -71,8 +88,6 @@ string commandHandler::getChannelInfo(string argument)
     }
     else
     {
-
-
         // todo:
         response = "s;NotRunning";
     }
@@ -91,22 +106,17 @@ string commandHandler::startChannel(string argument)
     }
     else
     {
-        // starting dsp
+        // todo: get correct values from config files
         string dspTcpPort = cfgChannels.getValue(channelKey, 0);
-
-        string dspFile = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
-        string dspCommand = dspFile + " --address 127.0.0.1 --hpsdr --master --clientport " + dspTcpPort + " --receiver " + argument + " --hwiqport 12222 --dspiqport 12223";
-        // todo: receiver when multiple mods
-
-        string fullCommand = "gnome-terminal -e '" + dspCommand + "'";
-        system(fullCommand.c_str());
-
-        // starting websocket bridge
+        string hwIqPort = "17000";
+        string dspIqPort = "17001";
         string dspWsPort = cfgChannels.getValue(channelKey, 1);
-        string websockify = "websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort;
 
-        fullCommand = "gnome-terminal -e '" + websockify + "'";
-        system(fullCommand.c_str());
+        string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
+        system(command.c_str());
+
+        command = getWebsocketCommand(dspWsPort, dspTcpPort);
+        system(command.c_str());
 
         response = "s;dsp started;" + dspWsPort;
     }
@@ -126,25 +136,55 @@ string commandHandler::listenChannel(string argument)
     }
     else
     {
-        // starting dsp
+        // todo: get correct values from config files
         string dspTcpPort = cfgChannels.getValue(channelKey, 0);
-
-        string dspFile = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
-        string dspCommand = dspFile + " --address 127.0.0.1 --hpsdr --clientport " + dspTcpPort + " --receiver " + argument + " --dspiqport 12224";
-
-        co.log("START DSP: " + dspCommand);
-
-        string fullCommand = "gnome-terminal -e '" + dspCommand + "'";
-        system(fullCommand.c_str());
-
-        // starting websocket bridge
+        string dspIqPort = "17002";
         string dspWsPort = cfgChannels.getValue(channelKey, 1);
-        string websockify = "websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort;
 
-        fullCommand = "gnome-terminal -e '" + websockify + "'";
-        system(fullCommand.c_str());
+        string command = getDspCommand(false, dspTcpPort, argument, dspIqPort, "");
+        system(command.c_str());
+
+        command = getWebsocketCommand(dspWsPort, dspTcpPort);
+        system(command.c_str());
 
         response = "s;dsp started;" + dspWsPort;
     }
     return response;
+}
+
+string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string receiver, string dspIqPort, string hwIqPort)
+{
+    string command = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
+
+    command += " --address 127.0.0.1";
+    command += " --hpsdr";
+    command += " --clientport " + dspTcpPort;
+    command += " --receiver " + receiver;
+    command += " --dspiqport " + dspIqPort;
+
+    if (isMaster)
+    {
+        command += " --master";
+        command += " --hwiqport " + hwIqPort;
+    }
+
+    return wrapStartCommand(command);
+}
+
+string commandHandler::getWebsocketCommand(string dspWsPort, string dspTcpPort)
+{
+    return wrapStartCommand("websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
+}
+
+string commandHandler::wrapStartCommand(string command)
+{
+    return "gnome-terminal -e '" + command + "'";
+}
+
+void commandHandler::writeDspPort(int channel, int part, string port)
+{
+    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Multiplexer.cfg");
+    cfg.load();
+
+    cfg.setValue(co.getChannelKey(channel), port, part);
 }

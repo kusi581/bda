@@ -77,6 +77,16 @@ std::vector<std::string> Common::split(const std::string &s, char delim) {
     return elems;
 }
 
+string Common::join (std::vector<std::string> &v, string delim)
+{
+    string result = "";
+    for (std::vector<std::string>::iterator i = v.begin();i != v.end(); i++)
+    {
+        result += *i + (i < v.end() - 1 ? delim : "");
+    }
+    return result;
+}
+
 string Common::toLower(string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), ::tolower);
@@ -101,4 +111,14 @@ string Common::getMasterKey(string channel)
 string Common::getSlaveKey(string channel, string slave)
 {
     return string("ch" + channel + "s" + slave);
+}
+
+string Common::getChannelKey(int channel)
+{
+    return getChannelKey(to_string(channel));
+}
+
+string Common::getChannelKey(string channel)
+{
+    return "ch" + channel;
 }
