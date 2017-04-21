@@ -2,11 +2,11 @@
 #define COMMANDHANDLER_H
 
 #include "config.h"
+#include "commandresponse.h"
 #include <string>
 #include <stdio.h>
 #include <map>
 using namespace std;
-
 
 /**
  * @brief this class handles the incoming commands from the clients
@@ -30,6 +30,7 @@ private:
     Config cfgChannels;
     Config cfgGlobal;
     static int checkIsRunningInterval;
+    commandResponse response;
 
     // commands
     static bool isInitialized;

@@ -12,7 +12,8 @@ SOURCES += main.cpp \
     common.cpp \
     dspmanager.cpp \
     commandhandler.cpp \
-    multiplexer.cpp
+    multiplexer.cpp \
+    commandresponse.cpp
 
 HEADERS += \
     config.h \
@@ -20,5 +21,6 @@ HEADERS += \
     main.h \
     dspmanager.h \
     commandhandler.h \
-    multiplexer.h
+    multiplexer.h \
+    commandresponse.h
 

@@ -35,7 +35,8 @@ private:
     /**
      * @brief ports mapping from the multiplex receive port to the dsp server ports
      */
-    map<int, vector<int>> ports;
+    static map<int, vector<int>> ports;
+    static bool portLock;
 
     /**
      * @brief startMultiplexing starts

@@ -1,4 +1,5 @@
 #include "commandhandler.h"
+#include "commandresponse.h"
 #include <cstdio>
 #include <cstdlib>
 #include <sys/wait.h>
@@ -28,20 +29,21 @@ commandHandler::commandHandler()
 
 string commandHandler::handle(string raw)
 {
-    string result = "f;invalid command";
+    string result = "";
     if (!commandHandler::isValid(raw))
-        return result;
+    {
+        response.setInvalidCommand();
+        return response.getJson();
+    }
 
     string cmd = co.toLower(raw.substr(0, raw.find('(')));
     string argument = (raw.find('(') == raw.find(')') - 1) ? "" : raw.substr(raw.find('(') + 1, raw.find(')') - raw.find('(') - 1);
 
     cmdPtr command = commandHandler::commandMap[cmd];
 
+    // magic pointer to member callback
     if (command != NULL)
-    {
-        co.log("Handling " + raw);
         result = (this->*command)(argument);
-    }
 
     return result;
 }
@@ -61,25 +63,17 @@ bool commandHandler::isValid(string command)
 
 string commandHandler::getChannels(string argument)
 {
-    int i = 0;
-    string response = "s;";
-
     cfgChannels.load();
 
-    int channels = cfgGlobal.getNumber("channels");
+    string channels = cfgGlobal.getValue("channels");
 
-    while (i < channels)
-    {
-        response = response + to_string(i) + (i < channels - 1 ? ";" : "");
-        i++;
-    }
-
-    return response;
+    response.setState(true);
+    response.set("channels", channels);
+    return response.getJson();
 }
 
 string commandHandler::getChannelInfo(string argument)
 {
-    string response;
     int channel = stoi(argument);
 
     cfgChannels.load();
@@ -87,25 +81,27 @@ string commandHandler::getChannelInfo(string argument)
     string key = co.getMasterKey(argument);
     if (channel >= cfgGlobal.getNumber("channels") || !cfgChannels.keyExists(key))
     {
-        response = "f;channel " + argument + " does not exist";
+        response.setState(false);
+        response.setMessage("invalid channel: " + argument);
     }
     else
     {
         // todo:
-        response = "s;NotRunning";
+        response.setState(true);
+        response.set("info", "todo...");
     }
-    return response;
+    return response.getJson();
 }
 
 string commandHandler::startChannel(string argument)
 {
-    string response;
     string channelKey = co.getMasterKey(argument);
 
     cfgChannels.load();
     if (!cfgChannels.keyExists(channelKey))
     {
-        response = "f;invalid channel";
+        response.setState(false);
+        response.setMessage("invalid channel: " + argument);
     }
     else
     {
@@ -121,21 +117,22 @@ string commandHandler::startChannel(string argument)
         command = getWebsocketCommand(dspWsPort, dspTcpPort);
         system(command.c_str());
 
-        response = "s;dsp started;" + dspWsPort;
+        response.setState(true);
+        response.setMessage("dsp started");
     }
 
-    return response;
+    return response.getJson();
 }
 
 string commandHandler::listenChannel(string argument)
 {
-    string response;
     string channelKey = co.getSlaveKey(argument, argument);
 
     cfgChannels.load();
     if (!cfgChannels.keyExists(channelKey))
     {
-        response = "f;invalid channel";
+        response.setState(false);
+        response.setMessage("invalid channel: " + argument);
     }
     else
     {
@@ -150,9 +147,10 @@ string commandHandler::listenChannel(string argument)
         command = getWebsocketCommand(dspWsPort, dspTcpPort);
         system(command.c_str());
 
-        response = "s;dsp started;" + dspWsPort;
+        response.setState(true);
+        response.setMessage("dsp started");
     }
-    return response;
+    return response.getJson();
 }
 
 string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string receiver, string dspIqPort, string hwIqPort)

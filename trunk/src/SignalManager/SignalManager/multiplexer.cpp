@@ -8,6 +8,9 @@
 
 using namespace std;
 
+bool multiplexer::portLock = false;
+map<int, vector<int>> multiplexer::ports;
+
 multiplexer::multiplexer()
 {
     co.initLog("MUL", true);
@@ -61,9 +64,9 @@ void multiplexer::startMultiplexing(int channel)
     unsigned char udpRecBuffer[512];
     struct sockaddr_in recAddr, hwServerAddr;
     unsigned int length;
-    bool isRunning = true;
+    bool clientRunning;
     time_t lastCheck = time(0);
-    int reconnectAttempts = 10;
+    int reconnectAttempts = 5;
     int recPort;
     int clientPort;
 
@@ -108,21 +111,28 @@ void multiplexer::startMultiplexing(int channel)
             if (ports[channel][0] == 0)
                 break;
 
-            for (i = 1;i < channels;i++)
+            clientRunning = false;
+
+            for (i = 1;i < channels + 1;i++)
             {
                 clientPort = ports[channel][i];
+                //co.log("Multi " + to_string(recPort) + " to " + to_string(clientPort));
                 if (clientPort == 0)
                     continue;
 
+                clientRunning = true;
                 clientAddr.sin_port = htons(clientPort);
                 sendto(senderSocket, udpRecBuffer, sizeof(udpRecBuffer), 0, (struct sockaddr*)&clientAddr, sizeof(clientAddr));
             }
 
+            if (!clientRunning)
+                break;
+/*
             if (time(0) - lastCheck > checkInterval)
             {
                 lastCheck = time(0);
-                thread(&multiplexer::loadPorts, this).detach();
-            }
+                thread(&multiplexer::loadPorts, this);
+            }*/
         }
 
         reconnectAttempts--;
@@ -143,17 +153,17 @@ void multiplexer::loadPorts()
     {
         vector<string> parts = co.split(cfg.getValue(channelKey), ',');
 
-        if (parts[0] != "")
+        tempPorts[currentChannel] = vector<int>(channels + 1);
+        for (currentPart = 0;currentPart < parts.size();currentPart++)
         {
-            tempPorts[currentChannel] = vector<int>(channels);
-            for (currentPart = 0;currentPart < parts.size();currentPart++)
-            {
-                tempPorts[currentChannel][currentPart] = parts[currentPart].length() > 0 ? stoi(parts[currentPart]) : 0;
-            }
+            string part = parts[currentPart];
+            tempPorts[currentChannel][currentPart] = parts[currentPart].length() > 0 ? stoi(part) : 0;
         }
+
         currentChannel += 1;
         channelKey = co.getChannelKey(currentChannel);
     }
     ports = tempPorts;
+    co.log("ports loaded");
 }
 

@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     multiplexer* multi = new multiplexer();
     multi->init();
     multi->start(0);
-    multi->start(1);
+    //multi->start(1);
 
     while(true){
         cin >> input;
