@@ -7,17 +7,29 @@
 #include <map>
 using namespace std;
 
+
+/**
+ * @brief this class handles the incoming commands from the clients
+ */
 class commandHandler
 {
 public:
     commandHandler();
+
+    /**
+     * @brief handle
+     * @param rawCommand
+     * @return result of execution
+     */
     string handle(string rawCommand);
 
 private:
+    typedef string (commandHandler::*cmdPtr)(string);
+
     Common co;
     Config cfgChannels;
     Config cfgGlobal;
-    typedef string (commandHandler::*cmdPtr)(string);
+    static int checkIsRunningInterval;
 
     // commands
     static bool isInitialized;
@@ -25,6 +37,8 @@ private:
     static map<string, cmdPtr> commandMap;
 
     bool isValid(string command);
+
+    // command handling methods
     string getChannels(string argument);
     string getChannelInfo(string argument);
     string startChannel(string argument);

@@ -19,7 +19,6 @@
 
 using namespace std;
 
-char* tLog;
 static Common co;
 
 int main(int argc, char *argv[])

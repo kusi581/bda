@@ -16,15 +16,17 @@ public:
     Config(string filename);
     void load();
     void save();
+
     bool keyExists(string key);
+
     string getValue(string key);
-    int getNumber(string key);
     string getValue(string key, int part);
+
+    int getNumber(string key);
     int getNumber(string key, int part);
 
     void setValue(string key, string value);
     void setValue(string key, string value, int part);
-
 private:
     Common co;
     string filename;

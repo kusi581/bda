@@ -1,15 +1,18 @@
 #include "commandhandler.h"
+#include <cstdio>
+#include <cstdlib>
+#include <sys/wait.h>
+#include <unistd.h>
 
 typedef string (commandHandler::*cmdPtr)(string);
 bool commandHandler::isInitialized = false;
 map<string, cmdPtr> commandHandler::commandMap;
 
-// this class handles the commands sent from the clients
-// for each command a new instance of this class is created
 commandHandler::commandHandler()
 {
     co.initLog("CoH", true);
 
+    // init of command map only once
     if (!commandHandler::isInitialized)
     {
         commandHandler::isInitialized = true;
@@ -127,7 +130,7 @@ string commandHandler::startChannel(string argument)
 string commandHandler::listenChannel(string argument)
 {
     string response;
-    string channelKey = co.getSlaveKey(argument, "0"); // todo: choose correct
+    string channelKey = co.getSlaveKey(argument, argument);
 
     cfgChannels.load();
     if (!cfgChannels.keyExists(channelKey))

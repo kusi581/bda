@@ -27,8 +27,8 @@ public:
 
     // config keys
     string getMasterKey(int channel);
-    string getSlaveKey(int channel, int slave);
     string getMasterKey(string channel);
+    string getSlaveKey(int channel, int slave);
     string getSlaveKey(string channel, string slave);
     string getChannelKey(string channel);
     string getChannelKey(int channel);
