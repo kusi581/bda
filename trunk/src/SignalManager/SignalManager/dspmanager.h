@@ -21,7 +21,7 @@ public:
 private:
     bool setupOk;
     Common co;
-    commandHandler handler;
+    commandHandler *handler;
     Config cfgChannels;
     Config cfgGlobal;
 

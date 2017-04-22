@@ -148,7 +148,8 @@ void dspManager::clientListen(int socketClient)
             else if (st == "disconnect()")
                 break;
 
-            string response = handler.handle(st);
+            handler = new commandHandler();
+            string response = handler->handle(st);
             bytes_read = send(socketClient, response.c_str(), response.length() + 1, 0);
             if (bytes_read < 0)
                 co.log("error sending response");

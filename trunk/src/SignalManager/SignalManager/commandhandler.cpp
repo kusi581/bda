@@ -119,6 +119,7 @@ string commandHandler::startChannel(string argument)
 
         response.setState(true);
         response.setMessage("dsp started");
+        response.set("port", dspWsPort);
     }
 
     return response.getJson();
@@ -149,6 +150,7 @@ string commandHandler::listenChannel(string argument)
 
         response.setState(true);
         response.setMessage("dsp started");
+        response.set("port", dspWsPort);
     }
     return response.getJson();
 }
