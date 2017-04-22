@@ -33,6 +33,7 @@ string commandResponse::getJson()
     {
         result += "\"" + it->first + "\":\"" + it->second + "\"" + (it != values.end() ? "," : "");
     }
+    result = result.substr(0, result.length() - 1);
     result += "}";
     return result;
 }
