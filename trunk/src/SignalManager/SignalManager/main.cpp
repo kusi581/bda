@@ -27,27 +27,33 @@ int main(int argc, char *argv[])
     co.initLog("MAI", true);
     co.log("Start");
 
-    dspManager* dspMan = new dspManager();
-    dspMan->setupSocket();
-    dspMan->startListener();
+    try {
+        dspManager* dspMan = new dspManager();
+        dspMan->setupSocket();
+        dspMan->startListener();
 
-    multiplexer* multi = new multiplexer();
-    multi->init();
-    multi->start(0);
-    //multi->start(1);
+        multiplexer* multi = multiplexer::Instance();
+        multi->init();
 
-    while(true){
-        cin >> input;
-        if (input == "q")
-        {
-            multi->stop();
-            dspMan->stopListener();
-            break;
+        while(true){
+            cin >> input;
+            if (input == "q")
+            {
+                multi->stop();
+                dspMan->stopListener();
+                break;
+            }
         }
-    }
 
-    // stop them threads
-    std::terminate();
+        // stop them threads
+        std::terminate();
+    }
+    catch (std::exception& ex) {
+        std::cerr << ex.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "Caught unknown exception." << std::endl;
+    }
 
     co.log("End");
     return 0;

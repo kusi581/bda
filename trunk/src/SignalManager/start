@@ -1,0 +1,2 @@
+#websockify -v 44444 -- ./build-SignalManager-Desktop-Debug/SignalManager
+./build-SignalManager-Desktop-Debug/SignalManager

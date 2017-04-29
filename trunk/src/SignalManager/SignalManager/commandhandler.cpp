@@ -1,9 +1,11 @@
 #include "commandhandler.h"
 #include "commandresponse.h"
+#include "multiplexer.h"
 #include <cstdio>
 #include <cstdlib>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "typedefinitions.h"
 
 typedef string (commandHandler::*cmdPtr)(string);
 bool commandHandler::isInitialized = false;
@@ -21,10 +23,12 @@ commandHandler::commandHandler()
     }
 
     cfgGlobal = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
-    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
+    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
+    cfgSlaves = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
 
     cfgGlobal.load();
     cfgChannels.load();
+    cfgSlaves.load();
 }
 
 string commandHandler::handle(string raw)
@@ -50,8 +54,8 @@ string commandHandler::handle(string raw)
 
 void commandHandler::initCommandMap()
 {
+    commandHandler::commandMap["init"] = &commandHandler::init;
     commandHandler::commandMap["getchannels"] = &commandHandler::getChannels;
-    commandHandler::commandMap["getchannelinfo"] = &commandHandler::getChannelInfo;
     commandHandler::commandMap["startchannel"] = &commandHandler::startChannel;
     commandHandler::commandMap["listenchannel"] = &commandHandler::listenChannel;
 }
@@ -61,65 +65,98 @@ bool commandHandler::isValid(string command)
     return !(command.find('(') == string::npos || command.find(')') == string::npos);
 }
 
-string commandHandler::getChannels(string argument)
+string commandHandler::init(string argument)
 {
-    cfgChannels.load();
+    int rate = argument.length() == 0 ? 48000 : stoi(argument);
 
-    string channels = cfgGlobal.getValue("channels");
-
-    response.setState(true);
-    response.set("channels", channels);
-    return response.getJson();
-}
-
-string commandHandler::getChannelInfo(string argument)
-{
-    int channel = stoi(argument);
-
-    cfgChannels.load();
-
-    string key = co.getMasterKey(argument);
-    if (channel >= cfgGlobal.getNumber("channels") || !cfgChannels.keyExists(key))
+    // todo argument check samplingrate
+    if (rate == 48000)
     {
-        response.setState(false);
-        response.setMessage("invalid channel: " + argument);
+        // todo: from argument
+        writeInitialChannelConfig(cfgGlobal.getNumber("channels"));
+        writeInitialSlaveConfig(cfgGlobal.getNumber("slaves"));
+
+        string command = getHwServerCommand(argument);
+        system(command.c_str());
+
+        response.setState(true);
+        response.setMessage("init complete");
     }
     else
     {
-        // todo:
-        response.setState(true);
-        response.set("info", "todo...");
+        response.setState(false);
+        response.setMessage("invalid samplingrate: " + argument);
+    }
+    return response.getJson();
+}
+
+string commandHandler::getChannels(string argument)
+{
+    int channels = cfgGlobal.getNumber("channels");
+
+    response.initArray(channels);
+    for (int i = 0; i < channels;i++)
+    {
+        response.addArrayEntry(i, "freq", "24800000");
+        response.addArrayEntry(i, "state", "free");
     }
     return response.getJson();
 }
 
 string commandHandler::startChannel(string argument)
 {
-    string channelKey = co.getMasterKey(argument);
+    int channel = stoi(argument);
+    int dspPortRoot = cfgGlobal.getNumber("masterPortStart") + (channel * 10);
+    string cKey = "ch" + argument;
 
-    cfgChannels.load();
-    if (!cfgChannels.keyExists(channelKey))
+    if (!cfgChannels.keyExists(cKey))
     {
         response.setState(false);
         response.setMessage("invalid channel: " + argument);
     }
-    else
+    else if(cfgChannels.getNumber(cKey,1) == InUse)
     {
-        // todo: get correct values from config files
-        string dspTcpPort = cfgChannels.getValue(channelKey, 0);
-        string hwIqPort = "17000";
-        string dspIqPort = "17001";
-        string dspWsPort = cfgChannels.getValue(channelKey, 1);
-
-        string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
-        system(command.c_str());
-
-        command = getWebsocketCommand(dspWsPort, dspTcpPort);
-        system(command.c_str());
+        response.setState(false);
+        response.setMessage("channel is in use: " + argument);
+    }
+    else if (channel >= 0 && channel < cfgGlobal.getNumber("channels"))
+    {
+        string dspTcpPort   = to_string(dspPortRoot + 1);
+        string hwIqPort     = to_string(dspPortRoot + 2);
+        string dspIqPort    = to_string(dspPortRoot + 3);
+        string dspWsPort    = to_string(dspPortRoot);
 
         response.setState(true);
-        response.setMessage("dsp started");
+        if (cfgChannels.getNumber(cKey, 1) == NotRunning)
+        {
+            // DspTCP               = masterportstart + (channel * 10) + 1
+            // multiplexerIqPort    = masterportstart + (channel * 10) + 2
+            // dspIqPort            = masterportstart + (channel * 10) + 3
+            // dspWsPort            = masterportstart + (channel * 10)
+
+            string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
+            system(command.c_str());
+
+            command = getWebsocketCommand(dspWsPort, dspTcpPort);
+            system(command.c_str());
+
+            response.setMessage("dsp started");
+            cfgChannels.setValue(cKey, to_string(Running), 1);
+
+            // notify multiplexer, so it reloads the configuration
+            multiplexer::Instance()->loadPorts();
+            multiplexer::Instance()->start(channel);
+        }
+        else
+        {
+            response.setMessage("dsp already started");
+        }
         response.set("port", dspWsPort);
+    }
+    else
+    {
+        response.setState(false);
+        response.setMessage("invalid channel: " + argument);
     }
 
     return response.getJson();
@@ -127,20 +164,17 @@ string commandHandler::startChannel(string argument)
 
 string commandHandler::listenChannel(string argument)
 {
-    string channelKey = co.getSlaveKey(argument, argument);
+    int channels = cfgGlobal.getNumber("channels");
+    int channel = stoi(argument);
+    int dspPortRoot = cfgGlobal.getNumber("masterPortStart") + (channels * 10) + (channel * 5);
+    string sKey = "s" + argument;
 
-    cfgChannels.load();
-    if (!cfgChannels.keyExists(channelKey))
+    // todo: else if no more slaves free
+    if (channel >= 0 && channel < channels)
     {
-        response.setState(false);
-        response.setMessage("invalid channel: " + argument);
-    }
-    else
-    {
-        // todo: get correct values from config files
-        string dspTcpPort = cfgChannels.getValue(channelKey, 0);
-        string dspIqPort = "17002";
-        string dspWsPort = cfgChannels.getValue(channelKey, 1);
+        string dspTcpPort   = to_string(dspPortRoot + 1);
+        string dspIqPort    = to_string(dspPortRoot + 3);
+        string dspWsPort    = to_string(dspPortRoot);
 
         string command = getDspCommand(false, dspTcpPort, argument, dspIqPort, "");
         system(command.c_str());
@@ -151,6 +185,18 @@ string commandHandler::listenChannel(string argument)
         response.setState(true);
         response.setMessage("dsp started");
         response.set("port", dspWsPort);
+
+        cfgSlaves.setValue(sKey, to_string(Running), 0);
+        cfgSlaves.setValue(sKey, to_string(channel), 2);
+
+        // notify multiplexer, so it reloads the configuration
+        multiplexer::Instance()->loadPorts();
+        multiplexer::Instance()->start(channel);
+    }
+    else
+    {
+        response.setState(false);
+        response.setMessage("invalid channel: " + argument);
     }
     return response.getJson();
 }
@@ -174,9 +220,21 @@ string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string re
     return wrapStartCommand(command);
 }
 
+string commandHandler::getHwServerCommand(string samplingrate)
+{
+    string command = "/home/kusi/School/bda/repo/trunk/src/server/hpsdr-server";
+    // --metis --interface wlp2s0 --samplerate 96000 --receivers 1
+    command += " --metis";
+    command += " --receiver 4";         // todo: configurable
+    command += " --interface wlp2s0";   // todo: configurable
+    command += " --samplerate " + samplingrate;
+
+    return wrapStartCommand(command);
+}
+
 string commandHandler::getWebsocketCommand(string dspWsPort, string dspTcpPort)
 {
-    return wrapStartCommand("websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
+    return wrapStartCommand("websockify 192.168.1.111:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
 }
 
 string commandHandler::wrapStartCommand(string command)
@@ -190,4 +248,43 @@ void commandHandler::writeDspPort(int channel, int part, string port)
     cfg.load();
 
     cfg.setValue(co.getChannelKey(channel), port, part);
+}
+
+void commandHandler::writeInitialChannelConfig(int channels)
+{
+    int masterPort = cfgGlobal.getNumber("masterPortStart");
+    string defFreq = cfgGlobal.getValue("defaultFrequency");
+    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
+    string channelKey;
+    for(int i = 0;i<channels;i++)
+    {
+        int dspPortRoot = masterPort + (i * 10);
+
+        channelKey = "ch" + to_string(i);
+        cfg.setValue(channelKey, "FREQ,STATE,MulIQPort,DspIQPOrt");
+        cfg.setValue(channelKey, defFreq, 0);
+        cfg.setValue(channelKey, to_string(NotRunning), 1);
+        cfg.setValue(channelKey, to_string(dspPortRoot + 2), 2);
+        cfg.setValue(channelKey, to_string(dspPortRoot + 3), 3);
+    }
+    cfg.save();
+}
+
+void commandHandler::writeInitialSlaveConfig(int slaves)
+{
+    int masterPort = cfgGlobal.getNumber("masterPortStart");
+    int channels = cfgGlobal.getNumber("channels");
+    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+    string channelKey;
+    for(int i = 0;i<slaves;i++)
+    {
+        int dspPortRoot = masterPort + (channels * 10) + (i * 5);
+
+        channelKey = "s" + to_string(i);
+        cfg.setValue(channelKey, "STATE,DspIQPOrt,ChannelNr");
+        cfg.setValue(channelKey, to_string(NotRunning), 0);
+        cfg.setValue(channelKey, to_string(dspPortRoot + 3), 1);
+        cfg.setValue(channelKey, to_string(-1), 2);
+    }
+    cfg.save();
 }

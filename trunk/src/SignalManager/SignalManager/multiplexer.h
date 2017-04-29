@@ -11,6 +11,8 @@ using namespace  std;
 class multiplexer
 {
 public:
+    static multiplexer *Instance();
+
     multiplexer();
     void init();
 
@@ -21,10 +23,19 @@ public:
     void start(int channel);
 
     void stop();
+
+    /**
+     * @brief loadPorts loads the multiplex ports from a configuration file,
+     * this is calles periodically while multiplexing, to ensure new dsp servers
+     * receive the packets too
+     */
+    void loadPorts();
 private:
+    static multiplexer* m_pInstance;
     int checkInterval;
     int channels;
     bool isRunning;
+    bool isDirty;
     Common co;
 
     /**
@@ -43,13 +54,6 @@ private:
      * @param channel
      */
     void startMultiplexing(int channel);
-
-    /**
-     * @brief loadPorts loads the multiplex ports from a configuration file,
-     * this is calles periodically while multiplexing, to ensure new dsp servers
-     * receive the packets too
-     */
-    void loadPorts();
 };
 
 #endif // MULTIPLEXER_H

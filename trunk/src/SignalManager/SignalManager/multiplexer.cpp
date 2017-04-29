@@ -1,4 +1,5 @@
 #include "multiplexer.h"
+#include "typedefinitions.h"
 #include "config.h"
 #include <sys/socket.h>
 #include <unistd.h>
@@ -8,8 +9,18 @@
 
 using namespace std;
 
+multiplexer *multiplexer::m_pInstance = NULL;
+
 bool multiplexer::portLock = false;
 map<int, vector<int>> multiplexer::ports;
+
+multiplexer *multiplexer::Instance()
+{
+    if (!m_pInstance)
+        m_pInstance = new multiplexer();
+
+    return m_pInstance;
+}
 
 multiplexer::multiplexer()
 {
@@ -64,8 +75,6 @@ void multiplexer::startMultiplexing(int channel)
     unsigned char udpRecBuffer[512];
     struct sockaddr_in recAddr, hwServerAddr;
     unsigned int length;
-    bool clientRunning;
-    time_t lastCheck = time(0);
     int reconnectAttempts = 5;
     int recPort;
     int clientPort;
@@ -108,31 +117,16 @@ void multiplexer::startMultiplexing(int channel)
                 break;
             }
 
-            if (ports[channel][0] == 0)
+            if (ports[channel].size() == 1)
                 break;
 
-            clientRunning = false;
-
-            for (i = 1;i < channels + 1;i++)
+            for (i = 1;i < ports[channel].size();i++)
             {
                 clientPort = ports[channel][i];
                 //co.log("Multi " + to_string(recPort) + " to " + to_string(clientPort));
-                if (clientPort == 0)
-                    continue;
-
-                clientRunning = true;
                 clientAddr.sin_port = htons(clientPort);
                 sendto(senderSocket, udpRecBuffer, sizeof(udpRecBuffer), 0, (struct sockaddr*)&clientAddr, sizeof(clientAddr));
             }
-
-            if (!clientRunning)
-                break;
-/*
-            if (time(0) - lastCheck > checkInterval)
-            {
-                lastCheck = time(0);
-                thread(&multiplexer::loadPorts, this);
-            }*/
         }
 
         reconnectAttempts--;
@@ -143,25 +137,33 @@ void multiplexer::startMultiplexing(int channel)
 
 void multiplexer::loadPorts()
 {
+    Config cfgGlobal("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
+    Config cfgChannels("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
+    Config cfgSlaves("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+
+    cfgGlobal.load();
+    cfgChannels.load();
+    cfgSlaves.load();
+
     map<int, vector<int>> tempPorts;
-    int currentChannel = 0, currentPart = 0;
-    string channelKey = co.getChannelKey(currentChannel);
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Multiplexer.cfg");
-    cfg.load();
 
-    while (cfg.keyExists(channelKey))
+    for (int i = 0; i < cfgGlobal.getNumber("channels"); i++)
     {
-        vector<string> parts = co.split(cfg.getValue(channelKey), ',');
+        string cKey = "ch" + to_string(i);
+        tempPorts[i] = vector<int>(1);
+        tempPorts[i][0] = cfgChannels.getNumber(cKey, 2);
+        if (cfgChannels.getNumber(cKey, 1) != NotRunning)
+            tempPorts[i].resize(tempPorts[i].size() + 1, cfgChannels.getNumber(cKey, 3));
+    }
 
-        tempPorts[currentChannel] = vector<int>(channels + 1);
-        for (currentPart = 0;currentPart < parts.size();currentPart++)
-        {
-            string part = parts[currentPart];
-            tempPorts[currentChannel][currentPart] = parts[currentPart].length() > 0 ? stoi(part) : 0;
-        }
+    for (int i = 0; i < cfgGlobal.getNumber("slaves"); i++)
+    {
+        string sKey = "s" + to_string(i);
+        int slaveChannel = cfgSlaves.getNumber(sKey, 2);
+        if (slaveChannel < 0)
+            continue;
 
-        currentChannel += 1;
-        channelKey = co.getChannelKey(currentChannel);
+        tempPorts[slaveChannel].resize(tempPorts[slaveChannel].size() + 1, cfgSlaves.getNumber(sKey, 1));
     }
     ports = tempPorts;
     co.log("ports loaded");

@@ -26,8 +26,17 @@ Config::Config(string filename)
     this->filename = filename;
 }
 
-int Config::getNumber(string key){
-    return stoi(getValue(key));
+int Config::getNumber(string key){ 
+    string val = getValue(key);
+    if (val.length() > 0)
+    {
+        return stoi(val);
+    }
+    else
+    {
+        co.log("Value is empty: " + key);
+        return 0;
+    }
 }
 
 void Config::setValue(string key, string value)
@@ -49,7 +58,16 @@ void Config::setValue(string key, string partValue, int part)
 }
 
 int Config::getNumber(string key, int part){
-    return stoi(getValue(key, part));
+    string val = getValue(key, part);
+    if (val.length() > 0)
+    {
+        return stoi(val);
+    }
+    else
+    {
+        co.log("Value is empty: " + key);
+        return 0;
+    }
 }
 
 bool Config::keyExists(string key)

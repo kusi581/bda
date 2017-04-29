@@ -22,5 +22,6 @@ HEADERS += \
     dspmanager.h \
     commandhandler.h \
     multiplexer.h \
-    commandresponse.h
+    commandresponse.h \
+    typedefinitions.h
 

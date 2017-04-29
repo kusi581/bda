@@ -34,11 +34,6 @@ private:
      * @param clientSocket
      */
     void clientListen(int clientSocket);
-
-    /**
-     * @brief generates a simple channel config
-     */
-    void generateInitialChannelConfig();
 };
 
 #endif // DSPMANAGER_H

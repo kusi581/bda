@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -17,10 +18,15 @@ public:
     void setInvalidCommand();
     void setState(bool success);
 
+    void initArray(int size);
+    void addArrayEntry(int index, string key, string value);
+
     string getJson();
 
 private:
     map<string, string> values;
+    vector<map<string, string>> array;
+    bool isArray;
 };
 
 #endif // COMMANDRESPONSE_H

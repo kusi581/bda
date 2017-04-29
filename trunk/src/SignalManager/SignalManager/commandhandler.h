@@ -27,8 +27,9 @@ private:
     typedef string (commandHandler::*cmdPtr)(string);
 
     Common co;
-    Config cfgChannels;
     Config cfgGlobal;
+    Config cfgChannels;
+    Config cfgSlaves;
     static int checkIsRunningInterval;
     commandResponse response;
 
@@ -40,6 +41,7 @@ private:
     bool isValid(string command);
 
     // command handling methods
+    string init(string argument);
     string getChannels(string argument);
     string getChannelInfo(string argument);
     string startChannel(string argument);
@@ -48,11 +50,14 @@ private:
     // starting programs
     string getDspCommand(bool isMaster, string dspTcpPort, string receiver, string dspIqPort, string hwIqPort);
     string getWebsocketCommand(string dspWsPort, string dspTcpPort);
+    string getHwServerCommand(string samplingrate);
     string wrapStartCommand(string command);
     void startMultiplexer(int channel);
 
     // config
     void writeDspPort(int channel, int slave, string port);
+    void writeInitialChannelConfig(int channels);
+    void writeInitialSlaveConfig(int slaves);
 };
 
 #endif // COMMANDHANDLER_H
