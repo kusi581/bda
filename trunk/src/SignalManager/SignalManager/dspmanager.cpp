@@ -66,7 +66,7 @@ void dspManager::setupSocket()
     int port = cfgGlobal.getNumber("tcpListenPort");
 
     socketAddr.sin_family = AF_INET;
-    socketAddr.sin_addr.s_addr = inet_addr("192.168.1.111");
+    socketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     socketAddr.sin_port = htons(port);
 
     if (bind(tcpSocket, (struct sockaddr *) &socketAddr, socketAddrSize) < 0)

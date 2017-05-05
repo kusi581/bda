@@ -234,7 +234,7 @@ string commandHandler::getHwServerCommand(string samplingrate)
 
 string commandHandler::getWebsocketCommand(string dspWsPort, string dspTcpPort)
 {
-    return wrapStartCommand("websockify 192.168.1.111:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
+    return wrapStartCommand("websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
 }
 
 string commandHandler::wrapStartCommand(string command)
