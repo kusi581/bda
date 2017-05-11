@@ -2,6 +2,7 @@
 #define COMMANDHANDLER_H
 
 #include "config.h"
+#include "lifecyclemanager.h"
 #include "commandresponse.h"
 #include <string>
 #include <stdio.h>

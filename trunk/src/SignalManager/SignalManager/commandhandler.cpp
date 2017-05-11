@@ -135,6 +135,7 @@ string commandHandler::startChannel(string argument)
             // dspWsPort            = masterportstart + (channel * 10)
 
             string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
+            command = wrapStartCommand(command);
             system(command.c_str());
 
             command = getWebsocketCommand(dspWsPort, dspTcpPort);
@@ -164,12 +165,12 @@ string commandHandler::startChannel(string argument)
 
 string commandHandler::listenChannel(string argument)
 {
+    // todo: use slaves instead of channels
     int channels = cfgGlobal.getNumber("channels");
     int channel = stoi(argument);
     int dspPortRoot = cfgGlobal.getNumber("masterPortStart") + (channels * 10) + (channel * 5);
     string sKey = "s" + argument;
 
-    // todo: else if no more slaves free
     if (channel >= 0 && channel < channels)
     {
         string dspTcpPort   = to_string(dspPortRoot + 1);
@@ -177,6 +178,8 @@ string commandHandler::listenChannel(string argument)
         string dspWsPort    = to_string(dspPortRoot);
 
         string command = getDspCommand(false, dspTcpPort, argument, dspIqPort, "");
+        string dspRawCommand = command;
+        command = wrapStartCommand(command);
         system(command.c_str());
 
         command = getWebsocketCommand(dspWsPort, dspTcpPort);
@@ -192,6 +195,8 @@ string commandHandler::listenChannel(string argument)
         // notify multiplexer, so it reloads the configuration
         multiplexer::Instance()->loadPorts();
         multiplexer::Instance()->start(channel);
+
+        lifecycleManager::Instance()->observeSlave(dspRawCommand, channel);
     }
     else
     {
@@ -217,7 +222,7 @@ string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string re
         command += " --hwiqport " + hwIqPort;
     }
 
-    return wrapStartCommand(command);
+    return command;
 }
 
 string commandHandler::getHwServerCommand(string samplingrate)

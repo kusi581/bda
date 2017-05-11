@@ -13,7 +13,8 @@ SOURCES += main.cpp \
     dspmanager.cpp \
     commandhandler.cpp \
     multiplexer.cpp \
-    commandresponse.cpp
+    commandresponse.cpp \
+    lifecyclemanager.cpp
 
 HEADERS += \
     config.h \
@@ -23,5 +24,6 @@ HEADERS += \
     commandhandler.h \
     multiplexer.h \
     commandresponse.h \
-    typedefinitions.h
+    typedefinitions.h \
+    lifecyclemanager.h
 

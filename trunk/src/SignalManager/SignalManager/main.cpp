@@ -16,6 +16,7 @@
 #include "main.h"
 #include "dspmanager.h"
 #include "multiplexer.h"
+#include "lifecyclemanager.h"
 
 using namespace std;
 
@@ -34,6 +35,13 @@ int main(int argc, char *argv[])
 
         multiplexer* multi = multiplexer::Instance();
         multi->init();
+
+        // testing
+        //lifecycleManager* cycler = lifecycleManager::Instance();
+
+        //thread t(&lifecycleManager::startMaster, cycler, 1);
+
+        //cycler->startMaster(1);
 
         while(true){
             cin >> input;
