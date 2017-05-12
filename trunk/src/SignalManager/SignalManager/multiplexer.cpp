@@ -29,10 +29,9 @@ multiplexer::multiplexer()
 
 void multiplexer::init()
 {
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
+    Config cfg("./SignalManager.cfg");
     cfg.load();
 
-    this->checkInterval = cfg.getNumber("multiplexCheckInterval");
     this->channels = cfg.getNumber("channels");
     threads = vector<thread>(channels);
 
@@ -137,9 +136,9 @@ void multiplexer::startMultiplexing(int channel)
 
 void multiplexer::loadPorts()
 {
-    Config cfgGlobal("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
-    Config cfgChannels("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
-    Config cfgSlaves("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+    Config cfgGlobal("./SignalManager.cfg");
+    Config cfgChannels("./Channels.cfg");
+    Config cfgSlaves("./Slaves.cfg");
 
     cfgGlobal.load();
     cfgChannels.load();

@@ -18,12 +18,26 @@ Config::Config()
 {
     co.initLog("CFG", false);
     values["ConfigVersion"] = std::to_string(CFG_VERSION);
+    saveOnChange = true;
 }
 
 Config::Config(string filename)
 {
     Config();
     this->filename = filename;
+}
+
+bool Config::exists()
+{
+    bool exists = false;
+    cfg.open(filename, ios::in);
+
+    if (cfg.is_open())
+    {
+        exists = true;
+        cfg.close();
+    }
+    return exists;
 }
 
 int Config::getNumber(string key){ 
@@ -44,7 +58,8 @@ void Config::setValue(string key, string value)
     values[key] = value;
 
     // save when something changes
-    save();
+    if (saveOnChange)
+        save();
 }
 
 void Config::setValue(string key, string partValue, int part)
@@ -86,7 +101,7 @@ string Config::getValue(string key, int part)
 {
     string val = getValue(key);
     std::vector<std::string> parts = co.split(val, ',');
-    return parts[part];
+    return parts.size() == 0 ? "" : parts[part];
 }
 
 void Config::load()
@@ -127,6 +142,11 @@ void Config::save()
     {
         co.log("Could not open config file!");
     }
+}
+
+void Config::enableSaveOnChange(bool saveEnabled)
+{
+    saveOnChange = saveEnabled;
 }
 
 void Config::parseLine(string line){

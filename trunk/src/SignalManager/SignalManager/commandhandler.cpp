@@ -22,9 +22,9 @@ commandHandler::commandHandler()
         commandHandler::initCommandMap();
     }
 
-    cfgGlobal = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
-    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
-    cfgSlaves = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+    cfgGlobal = Config("./SignalManager.cfg");
+    cfgChannels = Config("./Channels.cfg");
+    cfgSlaves = Config("./Slaves.cfg");
 
     cfgGlobal.load();
     cfgChannels.load();
@@ -97,8 +97,10 @@ string commandHandler::getChannels(string argument)
     response.initArray(channels);
     for (int i = 0; i < channels;i++)
     {
-        response.addArrayEntry(i, "freq", "24800000");
-        response.addArrayEntry(i, "state", "free");
+        string cKey = "ch" + to_string(i);
+
+        response.addArrayEntry(i, "freq", cfgChannels.getValue(cKey, 0));
+        response.addArrayEntry(i, "state", (cfgChannels.getNumber(cKey, 1) != InUse ? "free" : "notFree"));
     }
     return response.getJson();
 }
@@ -135,8 +137,12 @@ string commandHandler::startChannel(string argument)
             // dspWsPort            = masterportstart + (channel * 10)
 
             string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
-            command = wrapStartCommand(command);
-            system(command.c_str());
+            if (!lifecycleManager::Instance()->isRunning(command))
+            {
+                command = wrapStartCommand(command);
+                system(command.c_str());
+            }
+
 
             command = getWebsocketCommand(dspWsPort, dspTcpPort);
             system(command.c_str());
@@ -165,22 +171,31 @@ string commandHandler::startChannel(string argument)
 
 string commandHandler::listenChannel(string argument)
 {
-    // todo: use slaves instead of channels
     int channels = cfgGlobal.getNumber("channels");
     int channel = stoi(argument);
-    int dspPortRoot = cfgGlobal.getNumber("masterPortStart") + (channels * 10) + (channel * 5);
-    string sKey = "s" + argument;
+    int slave = getNextAvailableSlave();
 
-    if (channel >= 0 && channel < channels)
+    if (slave < 0)
     {
+        response.setState(false);
+        response.setMessage("no more slaves available");
+    }
+    else if (channel >= 0 && channel < channels)
+    {
+        string sKey = "s" + to_string(slave);
+        int dspPortRoot = cfgGlobal.getNumber("masterPortStart") + (channels * 10) + (slave * 5);
         string dspTcpPort   = to_string(dspPortRoot + 1);
         string dspIqPort    = to_string(dspPortRoot + 3);
         string dspWsPort    = to_string(dspPortRoot);
 
         string command = getDspCommand(false, dspTcpPort, argument, dspIqPort, "");
         string dspRawCommand = command;
-        command = wrapStartCommand(command);
-        system(command.c_str());
+
+        if (!lifecycleManager::Instance()->isRunning(dspRawCommand))
+        {
+            command = wrapStartCommand(command);
+            system(command.c_str());
+        }
 
         command = getWebsocketCommand(dspWsPort, dspTcpPort);
         system(command.c_str());
@@ -190,13 +205,14 @@ string commandHandler::listenChannel(string argument)
         response.set("port", dspWsPort);
 
         cfgSlaves.setValue(sKey, to_string(Running), 0);
-        cfgSlaves.setValue(sKey, to_string(channel), 2);
+        cfgSlaves.setValue(sKey, to_string(slave), 2);
 
         // notify multiplexer, so it reloads the configuration
         multiplexer::Instance()->loadPorts();
         multiplexer::Instance()->start(channel);
 
-        lifecycleManager::Instance()->observeSlave(dspRawCommand, channel);
+        // start observer
+        lifecycleManager::Instance()->observeSlave(dspRawCommand, slave);
     }
     else
     {
@@ -210,7 +226,7 @@ string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string re
 {
     string command = "/home/kusi/School/bda/repo/trunk/src/dspserver/dspserver";
 
-    command += " --address 127.0.0.1";
+    command += " --address " + cfgGlobal.getValue("localIp");
     command += " --hpsdr";
     command += " --clientport " + dspTcpPort;
     command += " --receiver " + receiver;
@@ -228,10 +244,10 @@ string commandHandler::getDspCommand(bool isMaster, string dspTcpPort, string re
 string commandHandler::getHwServerCommand(string samplingrate)
 {
     string command = "/home/kusi/School/bda/repo/trunk/src/server/hpsdr-server";
-    // --metis --interface wlp2s0 --samplerate 96000 --receivers 1
+
     command += " --metis";
-    command += " --receiver 4";         // todo: configurable
-    command += " --interface wlp2s0";   // todo: configurable
+    command += " --receiver " + (cfgGlobal.getNumber("channels") > 4 ? "4" : cfgGlobal.getValue("channels"));
+    command += " --interface " + cfgGlobal.getValue("metisIf");
     command += " --samplerate " + samplingrate;
 
     return wrapStartCommand(command);
@@ -239,7 +255,8 @@ string commandHandler::getHwServerCommand(string samplingrate)
 
 string commandHandler::getWebsocketCommand(string dspWsPort, string dspTcpPort)
 {
-    return wrapStartCommand("websockify 127.0.0.1:" + dspWsPort + " 127.0.0.1:" + dspTcpPort);
+    string localIp = cfgGlobal.getValue("localIp");
+    return wrapStartCommand("websockify " + localIp + ":" + dspWsPort + " " + localIp + ":" + dspTcpPort);
 }
 
 string commandHandler::wrapStartCommand(string command)
@@ -249,7 +266,7 @@ string commandHandler::wrapStartCommand(string command)
 
 void commandHandler::writeDspPort(int channel, int part, string port)
 {
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Multiplexer.cfg");
+    Config cfg("./Multiplexer.cfg");
     cfg.load();
 
     cfg.setValue(co.getChannelKey(channel), port, part);
@@ -259,8 +276,9 @@ void commandHandler::writeInitialChannelConfig(int channels)
 {
     int masterPort = cfgGlobal.getNumber("masterPortStart");
     string defFreq = cfgGlobal.getValue("defaultFrequency");
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Channels.cfg");
+    Config cfg("./Channels.cfg");
     string channelKey;
+    cfg.enableSaveOnChange(false);
     for(int i = 0;i<channels;i++)
     {
         int dspPortRoot = masterPort + (i * 10);
@@ -272,6 +290,7 @@ void commandHandler::writeInitialChannelConfig(int channels)
         cfg.setValue(channelKey, to_string(dspPortRoot + 2), 2);
         cfg.setValue(channelKey, to_string(dspPortRoot + 3), 3);
     }
+    cfg.enableSaveOnChange(true);
     cfg.save();
 }
 
@@ -279,8 +298,9 @@ void commandHandler::writeInitialSlaveConfig(int slaves)
 {
     int masterPort = cfgGlobal.getNumber("masterPortStart");
     int channels = cfgGlobal.getNumber("channels");
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+    Config cfg("./Slaves.cfg");
     string channelKey;
+    cfg.enableSaveOnChange(false);
     for(int i = 0;i<slaves;i++)
     {
         int dspPortRoot = masterPort + (channels * 10) + (i * 5);
@@ -291,5 +311,20 @@ void commandHandler::writeInitialSlaveConfig(int slaves)
         cfg.setValue(channelKey, to_string(dspPortRoot + 3), 1);
         cfg.setValue(channelKey, to_string(-1), 2);
     }
+    cfg.enableSaveOnChange(true);
     cfg.save();
+}
+
+int commandHandler::getNextAvailableSlave()
+{
+    int slave = -1;
+    int slaves = cfgGlobal.getNumber("slaves");
+    for (int i = 0; i < slaves; i++)
+    {
+        string slaveKey = "s" + to_string(i);
+        slave = cfgSlaves.getNumber(slaveKey, 0) == 0 ? i : -1;
+        if (slave >= 0)
+            break;
+    }
+    return slave;
 }

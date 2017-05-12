@@ -34,6 +34,8 @@ private:
      * @param clientSocket
      */
     void clientListen(int clientSocket);
+
+    void writeInitialSignalConfig();
 };
 
 #endif // DSPMANAGER_H

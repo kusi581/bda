@@ -5,6 +5,10 @@
 #include <signal.h>
 #include <chrono>
 
+#include <string>
+#include <limits.h>
+#include <unistd.h>
+
 lifecycleManager *lifecycleManager::m_pInstance = NULL;
 
 lifecycleManager *lifecycleManager::Instance()
@@ -22,18 +26,41 @@ void lifecycleManager::observeSlave(string rawDspCommand, int slaveNr)
         co.log("Invalid slave specified");
         return;
     }
-
-    if (threads[slaveNr].joinable())
+    if (threadStates[slaveNr] == ObserverState::Observing)
     {
         co.log("Observer for slave " + to_string(slaveNr) + " is still running");
         return;
     }
 
+    if (threadStates[slaveNr] == ObserverState::Finished)
+    {
+        co.log("Observer for slave " + to_string(slaveNr) + " has finished");
+        threads[slaveNr].join();
+    }
+
     threads[slaveNr] = thread(&lifecycleManager::observeSlaveThread, this, rawDspCommand, slaveNr);
+}
+
+bool lifecycleManager::isRunning(string rawDspCommand)
+{
+    int bufLen = 128, nr = 0;
+    char path[bufLen];
+    string pgrepCmd = "pgrep -c -f '" + rawDspCommand + "'";
+
+    FILE *fp = popen(pgrepCmd.c_str(), "r");
+    while (fgets(path, bufLen, fp) != NULL)
+    {
+        nr = stoi(path);
+    }
+
+    pclose(fp);
+
+    return nr > 1;
 }
 
 void lifecycleManager::observeSlaveThread(string command, int nr)
 {
+    threadStates[nr] = ObserverState::Observing;
     int bufLen = 128, pid = -1;
     char path[bufLen];
     string pgrepCmd = "pgrep -o -f '" + command + "'";
@@ -58,16 +85,18 @@ void lifecycleManager::observeSlaveThread(string command, int nr)
 
     cfgSlaves.setValue(sKey, to_string(NotRunning), 0);
     cfgSlaves.setValue(sKey, to_string(-1), 2);
+
+    threadStates[nr] = ObserverState::Finished;
 }
 
 lifecycleManager::lifecycleManager()
 {
     co.initLog("lcy", true);
 
-    cfgSlaves = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/Slaves.cfg");
+    cfgSlaves = Config("./Slaves.cfg");
     cfgSlaves.load();
 
-    Config cfg("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
+    Config cfg("./SignalManager.cfg");
     cfg.load();
 
     checkInterval = cfg.getNumber("dspServerCheckInterval");
@@ -75,4 +104,5 @@ lifecycleManager::lifecycleManager()
 
     // one thread per slave
     threads = vector<thread>(slaves);
+    threadStates = vector<State>(slaves);
 }

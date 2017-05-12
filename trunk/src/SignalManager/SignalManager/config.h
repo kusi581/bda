@@ -14,8 +14,10 @@ class Config
 public:
     Config();
     Config(string filename);
+    bool exists();
     void load();
     void save();
+    void enableSaveOnChange(bool saveEnabled);
 
     bool keyExists(string key);
 
@@ -33,6 +35,7 @@ private:
     fstream cfg;
     void parseLine(string line);
     map<string, string> values;
+    bool saveOnChange;
 };
 
 

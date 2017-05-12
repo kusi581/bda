@@ -21,10 +21,15 @@ dspManager::dspManager()
     co.initLog("dsp", true);
     isRunning = false;
     setupOk = false;
-    cfgGlobal = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/SignalManager.cfg");
+
+    cfgGlobal = Config("./SignalManager.cfg");
+
+    if (!cfgGlobal.exists())
+        writeInitialSignalConfig();
+
     cfgGlobal.load();
 
-    cfgChannels = Config("/home/kusi/School/bda/repo/trunk/src/SignalManager/SignalManager/DspMapping.cfg");
+    cfgChannels = Config("./DspMapping.cfg");
 }
 
 void dspManager::startListener()
@@ -49,11 +54,12 @@ void dspManager::stopListener()
 {
     close(tcpSocket);
     isRunning = false;
-    listenThread.detach();
+    //listenThread.join();
 }
 
 void dspManager::setupSocket()
 {
+    string socketIp = cfgGlobal.getValue("localIp");
     tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
     if (tcpSocket == -1)
     {
@@ -66,7 +72,7 @@ void dspManager::setupSocket()
     int port = cfgGlobal.getNumber("tcpListenPort");
 
     socketAddr.sin_family = AF_INET;
-    socketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    socketAddr.sin_addr.s_addr = inet_addr(socketIp.c_str());
     socketAddr.sin_port = htons(port);
 
     if (bind(tcpSocket, (struct sockaddr *) &socketAddr, socketAddrSize) < 0)
@@ -75,6 +81,8 @@ void dspManager::setupSocket()
         co.log("Tcp socket error: bind()");
         return;
     }
+
+    co.log("listen on " + socketIp + ":" + to_string(port));
 
     if (listen(tcpSocket, nrOfConnections) < 0)
     {
@@ -110,7 +118,7 @@ void dspManager::clientListen(int socketClient)
     co.log(socketStr + " start listen");
     while (isRunning){
         co.log(socketStr + " wait for command");
-        bytes_read = read(socketClient, receiveBuffer, sizeof(receiveBuffer));// recvfrom(socketClient, receiveBuffer, sizeof(receiveBuffer), 0, (struct sockaddr *)&socketAddr,&socketAddrSize);
+        bytes_read = read(socketClient, receiveBuffer, sizeof(receiveBuffer));
 
         if (bytes_read < 0)
         {
@@ -142,4 +150,21 @@ void dspManager::clientListen(int socketClient)
     }
     close(socketClient);
     co.log(socketStr + " closed");
+}
+
+void dspManager::writeInitialSignalConfig()
+{
+    cfgGlobal.enableSaveOnChange(false);
+    cfgGlobal.setValue("channels", "2");
+    cfgGlobal.setValue("slaves", "8");
+    cfgGlobal.setValue("tcpListenPort", "55555");
+    cfgGlobal.setValue("masterPortStart", "50000");
+    cfgGlobal.setValue("dspServerCheckInterval", "5000");
+    cfgGlobal.setValue("defaultFrequency", "28400000");
+    cfgGlobal.setValue("localIp", "127.0.0.1");
+    cfgGlobal.setValue("metisIf", "wlp2s0");
+    cfgGlobal.save();
+    cfgGlobal.enableSaveOnChange(true);
+
+    co.log("inital master config written");
 }

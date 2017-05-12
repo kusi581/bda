@@ -59,6 +59,7 @@ private:
     void writeDspPort(int channel, int slave, string port);
     void writeInitialChannelConfig(int channels);
     void writeInitialSlaveConfig(int slaves);
+    int getNextAvailableSlave();
 };
 
 #endif // COMMANDHANDLER_H

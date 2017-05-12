@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         multi->init();
 
         // testing
-        //lifecycleManager* cycler = lifecycleManager::Instance();
+        lifecycleManager* cycler = lifecycleManager::Instance();
 
         //thread t(&lifecycleManager::startMaster, cycler, 1);
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
         }
 
         // stop them threads
-        std::terminate();
+        // std::terminate();
     }
     catch (std::exception& ex) {
         std::cerr << ex.what() << std::endl;

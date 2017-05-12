@@ -32,7 +32,6 @@ public:
     void loadPorts();
 private:
     static multiplexer* m_pInstance;
-    int checkInterval;
     int channels;
     bool isRunning;
     bool isDirty;
