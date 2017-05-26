@@ -14,7 +14,7 @@ int bytes_read;
 unsigned int socketAddrSize = sizeof(socketAddr);
 Config cfgGlobal;
 Config cfgChannels;
-int nrOfConnections = 5; // todo: configurable in global
+int nrOfConnections = 5;
 
 dspManager::dspManager()
 {
@@ -28,6 +28,8 @@ dspManager::dspManager()
         writeInitialSignalConfig();
 
     cfgGlobal.load();
+
+    nrOfConnections = cfgGlobal.getNumber("nrOfConnections");
 
     cfgChannels = Config("./DspMapping.cfg");
 }
@@ -163,6 +165,7 @@ void dspManager::writeInitialSignalConfig()
     cfgGlobal.setValue("defaultFrequency", "28400000");
     cfgGlobal.setValue("localIp", "127.0.0.1");
     cfgGlobal.setValue("metisIf", "wlp2s0");
+    cfgGlobal.setValue("nrOfConnections", "10");
     cfgGlobal.save();
     cfgGlobal.enableSaveOnChange(true);
 

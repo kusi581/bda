@@ -69,10 +69,8 @@ string commandHandler::init(string argument)
 {
     int rate = argument.length() == 0 ? 48000 : stoi(argument);
 
-    // todo argument check samplingrate
-    if (rate == 48000)
+    if (rate == 48000 || rate == 96000 || rate == 192000)
     {
-        // todo: from argument
         writeInitialChannelConfig(cfgGlobal.getNumber("channels"));
         writeInitialSlaveConfig(cfgGlobal.getNumber("slaves"));
 
