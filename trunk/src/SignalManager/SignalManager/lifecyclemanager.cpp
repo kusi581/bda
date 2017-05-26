@@ -26,19 +26,36 @@ void lifecycleManager::observeSlave(string rawDspCommand, int slaveNr)
         co.log("Invalid slave specified");
         return;
     }
-    if (threadStates[slaveNr] == ObserverState::Observing)
+
+    observeDsp(rawDspCommand, slaveNr + channels);
+}
+
+void lifecycleManager::observeMaster(string rawDspCommand, int channelNr)
+{
+    if (channelNr < 0 || channelNr > channels - 1)
     {
-        co.log("Observer for slave " + to_string(slaveNr) + " is still running");
+        co.log("Invalid master specified");
         return;
     }
 
-    if (threadStates[slaveNr] == ObserverState::Finished)
+    observeDsp(rawDspCommand, channelNr);
+}
+
+void lifecycleManager::observeDsp(string rawDspCommand, int nr)
+{
+    if (threadStates[nr] == ObserverState::Observing)
     {
-        co.log("Observer for slave " + to_string(slaveNr) + " has finished");
-        threads[slaveNr].join();
+        co.log("Observer for dsp server " + to_string(nr) + " is still running");
+        return;
     }
 
-    threads[slaveNr] = thread(&lifecycleManager::observeSlaveThread, this, rawDspCommand, slaveNr);
+    if (threadStates[nr] == ObserverState::Finished)
+    {
+        co.log("Observer for dsp server " + to_string(nr) + " has finished");
+        threads[nr].join();
+    }
+
+    threads[nr] = thread(&lifecycleManager::observeDspThread, this, rawDspCommand, nr);
 }
 
 bool lifecycleManager::isRunning(string rawDspCommand)
@@ -58,13 +75,12 @@ bool lifecycleManager::isRunning(string rawDspCommand)
     return nr > 1;
 }
 
-void lifecycleManager::observeSlaveThread(string command, int nr)
+void lifecycleManager::observeDspThread(string command, int nr)
 {
     threadStates[nr] = ObserverState::Observing;
     int bufLen = 128, pid = -1;
     char path[bufLen];
     string pgrepCmd = "pgrep -o -f '" + command + "'";
-    string sKey = "s" + to_string(nr);
 
     FILE *fp = popen(pgrepCmd.c_str(), "r");
     while (fgets(path, bufLen, fp) != NULL)
@@ -74,17 +90,27 @@ void lifecycleManager::observeSlaveThread(string command, int nr)
 
     if (pid <= 0)
     {
-        co.log("DspServer not running for slave " + to_string(nr));
+        co.log("DspServer " + to_string(nr) + " not running");
         return;
     }
 
     while (kill(pid, 0) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(checkInterval));
 
-    co.log("DspServer stopped, slave " + to_string(nr));
+    co.log("DspServer " + to_string(nr) + " stopped");
 
-    cfgSlaves.setValue(sKey, to_string(NotRunning), 0);
-    cfgSlaves.setValue(sKey, to_string(-1), 2);
+    // master or slave
+    if (nr >= channels)
+    {
+        string sKey = "s" + to_string(nr - channels);
+        cfgSlaves.setValue(sKey, to_string(NotRunning), 0);
+        cfgSlaves.setValue(sKey, to_string(-1), 2);
+    }
+    else
+    {
+        string cKey = "ch" + to_string(nr);
+        cfgChannels.setValue(cKey, to_string(NotRunning), 1);
+    }
 
     threadStates[nr] = ObserverState::Finished;
 }
@@ -96,13 +122,17 @@ lifecycleManager::lifecycleManager()
     cfgSlaves = Config("./Slaves.cfg");
     cfgSlaves.load();
 
+    cfgChannels = Config("./Channels.cfg");
+    cfgChannels.load();
+
     Config cfg("./SignalManager.cfg");
     cfg.load();
 
     checkInterval = cfg.getNumber("dspServerCheckInterval");
     slaves = cfg.getNumber("slaves");
+    channels = cfg.getNumber("channels");
 
-    // one thread per slave
-    threads = vector<thread>(slaves);
-    threadStates = vector<State>(slaves);
+    // one thread per dsp server, master and slaves combined
+    threads = vector<thread>(slaves + channels);
+    threadStates = vector<State>(slaves + channels);
 }

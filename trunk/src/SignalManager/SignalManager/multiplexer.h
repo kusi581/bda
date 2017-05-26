@@ -36,6 +36,7 @@ private:
     bool isRunning;
     bool isDirty;
     Common co;
+    Config cfgGlobal;
 
     /**
      * @brief threads list of all multiplexer threads

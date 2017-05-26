@@ -137,22 +137,27 @@ string commandHandler::startChannel(string argument)
             // dspWsPort            = masterportstart + (channel * 10)
 
             string command = getDspCommand(true, dspTcpPort, argument, dspIqPort, hwIqPort);
+            string dspRawCommand = command;
+
             if (!lifecycleManager::Instance()->isRunning(command))
             {
+                //co.log("Start master cmd: " + command);
                 command = wrapStartCommand(command);
                 system(command.c_str());
             }
-
 
             command = getWebsocketCommand(dspWsPort, dspTcpPort);
             system(command.c_str());
 
             response.setMessage("dsp started");
             cfgChannels.setValue(cKey, to_string(Running), 1);
+            cfgChannels.save();
 
             // notify multiplexer, so it reloads the configuration
-            multiplexer::Instance()->loadPorts();
             multiplexer::Instance()->start(channel);
+
+            // start observer
+            lifecycleManager::Instance()->observeMaster(dspRawCommand, channel);
         }
         else
         {
@@ -205,10 +210,9 @@ string commandHandler::listenChannel(string argument)
         response.set("port", dspWsPort);
 
         cfgSlaves.setValue(sKey, to_string(Running), 0);
-        cfgSlaves.setValue(sKey, to_string(slave), 2);
+        cfgSlaves.setValue(sKey, to_string(slave), 2);               
 
         // notify multiplexer, so it reloads the configuration
-        multiplexer::Instance()->loadPorts();
         multiplexer::Instance()->start(channel);
 
         // start observer

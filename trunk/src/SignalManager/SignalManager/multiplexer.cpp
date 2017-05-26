@@ -29,10 +29,10 @@ multiplexer::multiplexer()
 
 void multiplexer::init()
 {
-    Config cfg("./SignalManager.cfg");
-    cfg.load();
+    cfgGlobal = Config("./SignalManager.cfg");
+    cfgGlobal.load();
 
-    this->channels = cfg.getNumber("channels");
+    this->channels = cfgGlobal.getNumber("channels");
     threads = vector<thread>(channels);
 
     loadPorts();
@@ -40,6 +40,8 @@ void multiplexer::init()
 
 void multiplexer::start(int channel)
 {
+    loadPorts();
+
     if (ports[channel].size() == 0 || ports[channel][0] == 0)
     {
         co.log("multiplexer " + to_string(channel) + " not started, invalid configuration");
@@ -77,10 +79,11 @@ void multiplexer::startMultiplexing(int channel)
     int reconnectAttempts = 5;
     int recPort;
     int clientPort;
+    string localIp = cfgGlobal.getValue("localIp");
 
     struct sockaddr_in clientAddr;
     clientAddr.sin_family = AF_INET;
-    clientAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    clientAddr.sin_addr.s_addr = inet_addr(localIp.c_str());
 
     senderSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
@@ -99,7 +102,7 @@ void multiplexer::startMultiplexing(int channel)
         recPort = ports[channel][0];
 
         recAddr.sin_family = AF_INET;
-        recAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        recAddr.sin_addr.s_addr = inet_addr(localIp.c_str());
         recAddr.sin_port = htons(recPort);
 
         if (bind(udpReceiverSocket, (struct sockaddr*)&recAddr, sizeof(recAddr)) == -1)
@@ -110,6 +113,7 @@ void multiplexer::startMultiplexing(int channel)
 
         while (true) {
             bytes_read = recvfrom(udpReceiverSocket, udpRecBuffer, sizeof(udpRecBuffer), 0, (struct sockaddr*)&hwServerAddr, &length);
+
             if (bytes_read < 0)
             {
                 co.log("Error while reading from udp socket.");
@@ -136,7 +140,7 @@ void multiplexer::startMultiplexing(int channel)
 
 void multiplexer::loadPorts()
 {
-    Config cfgGlobal("./SignalManager.cfg");
+    bool logLoad = false;
     Config cfgChannels("./Channels.cfg");
     Config cfgSlaves("./Slaves.cfg");
 
@@ -145,14 +149,21 @@ void multiplexer::loadPorts()
     cfgSlaves.load();
 
     map<int, vector<int>> tempPorts;
+    int port;
 
     for (int i = 0; i < cfgGlobal.getNumber("channels"); i++)
     {
         string cKey = "ch" + to_string(i);
         tempPorts[i] = vector<int>(1);
-        tempPorts[i][0] = cfgChannels.getNumber(cKey, 2);
+        port = cfgChannels.getNumber(cKey, 2);
+        tempPorts[i][0] = port;
+        if (logLoad) co.log("ports[" + to_string(i) + "][0] = " + to_string(port));
         if (cfgChannels.getNumber(cKey, 1) != NotRunning)
-            tempPorts[i].resize(tempPorts[i].size() + 1, cfgChannels.getNumber(cKey, 3));
+        {
+            port = cfgChannels.getNumber(cKey, 3);
+            if (logLoad) co.log("ports[" + to_string(i) + "][1] -> " + to_string(port));
+            tempPorts[i].resize(tempPorts[i].size() + 1, port);
+        }
     }
 
     for (int i = 0; i < cfgGlobal.getNumber("slaves"); i++)
@@ -162,7 +173,9 @@ void multiplexer::loadPorts()
         if (slaveChannel < 0)
             continue;
 
-        tempPorts[slaveChannel].resize(tempPorts[slaveChannel].size() + 1, cfgSlaves.getNumber(sKey, 1));
+        port = cfgSlaves.getNumber(sKey, 1);
+        tempPorts[slaveChannel].resize(tempPorts[slaveChannel].size() + 1, port);
+        if (logLoad) co.log("ports[" + to_string(i) + "][x] -> " + to_string(port));
     }
     ports = tempPorts;
     co.log("ports loaded");

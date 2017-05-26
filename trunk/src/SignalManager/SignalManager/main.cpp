@@ -17,6 +17,7 @@
 #include "dspmanager.h"
 #include "multiplexer.h"
 #include "lifecyclemanager.h"
+#include "commandhandler.h"
 
 using namespace std;
 
@@ -33,15 +34,13 @@ int main(int argc, char *argv[])
         dspMan->setupSocket();
         dspMan->startListener();
 
+
         multiplexer* multi = multiplexer::Instance();
         multi->init();
+        //multi->start(0);
 
         // testing
         lifecycleManager* cycler = lifecycleManager::Instance();
-
-        //thread t(&lifecycleManager::startMaster, cycler, 1);
-
-        //cycler->startMaster(1);
 
         while(true){
             cin >> input;

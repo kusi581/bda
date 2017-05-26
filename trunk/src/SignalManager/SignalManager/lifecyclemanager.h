@@ -17,19 +17,23 @@ public:
     static lifecycleManager *Instance();
 
     void observeSlave(string rawDspCommand, int slaveNr);
+    void observeMaster(string rawDspCommand, int channelNr);
 
     bool isRunning(string rawDspCommand);
 private:
     Common co;
     Config cfgSlaves;
+    Config cfgChannels;
 
-    void observeSlaveThread(string command, int nr);
+    void observeDsp(string rawDspCommand, int nr);
+    void observeDspThread(string rawDspCommand, int nr);
 
     static lifecycleManager* m_pInstance;
     lifecycleManager();
     vector<thread> threads;
     vector<State> threadStates;
     int checkInterval;
+    int channels;
     int slaves;
 };
 
