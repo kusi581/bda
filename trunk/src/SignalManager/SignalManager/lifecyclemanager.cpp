@@ -1,5 +1,6 @@
 #include "lifecyclemanager.h"
 #include "typedefinitions.h"
+#include "multiplexer.h"
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -113,6 +114,9 @@ void lifecycleManager::observeDspThread(string command, int nr)
     }
 
     threadStates[nr] = ObserverState::Finished;
+
+    // reload multiplexer
+    multiplexer::Instance()->loadPorts();
 }
 
 lifecycleManager::lifecycleManager()
