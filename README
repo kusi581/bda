@@ -1,3 +1,6 @@
+This is a modification of the ghpsdr3-alex framework. It allows multiple users to listen on a receiver.
+It is mainly used with a Web counterpart: https://github.com/Hynrek/Web-SDR-PURE
+
 This is a modification of the excellent Software Defined Radio software by John Melton.  The original sources are in an svn repo revision 1999. See:
 
 http://openhpsdr.org/wiki/index.php?title=Ghpsdr3
